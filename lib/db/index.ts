@@ -1,14 +1,17 @@
 import { Pool } from "pg";
 import { RoadmapInitiative, Tenant, computeRICEScore } from "../types";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_UkAy0bg9uBoT@ep-rapid-truth-aqw82ysi-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require";
+const DATABASE_URL = process.env.DATABASE_URL;
 
 let pool: Pool | null = null;
 
 function getPool(): Pool {
   if (!pool) {
+    if (!DATABASE_URL) {
+      throw new Error(
+        "DATABASE_URL environment variable is not configured. Please set DATABASE_URL in your environment or Vercel project settings."
+      );
+    }
     pool = new Pool({
       connectionString: DATABASE_URL,
       max: 10,

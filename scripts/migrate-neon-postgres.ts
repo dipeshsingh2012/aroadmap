@@ -1,11 +1,15 @@
 import { Pool } from "pg";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_UkAy0bg9uBoT@ep-rapid-truth-aqw82ysi-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require";
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  console.error("Error: DATABASE_URL environment variable is required.");
+  process.exit(1);
+}
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
 });
 
 async function runMigration() {

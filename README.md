@@ -174,7 +174,7 @@ ROOT_DOMAIN=aroadmap.dev
 NEXT_PUBLIC_ROOT_DOMAIN=aroadmap.dev
 
 # Database (Neon Serverless PostgreSQL - Schema: aroadmap)
-DATABASE_URL=postgresql://neondb_owner:npg_UkAy0bg9uBoT@ep-rapid-truth-aqw82ysi-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-rapid-truth-aqw82ysi-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require
 ```
 
 ### 3. Run Development Server
