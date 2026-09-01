@@ -2,13 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files with extensions (e.g. .svg, .png, .jpg)
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
@@ -23,10 +16,16 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Handle /tenant/:slug legacy redirect to /:slug
+  if (url.pathname.startsWith("/tenant/")) {
+    const slug = url.pathname.replace("/tenant/", "");
+    return NextResponse.redirect(new URL(`/${slug}`, req.url));
+  }
+
   // Check query parameter override (?tenant=rfqengine)
   const queryTenant = searchParams.get("tenant");
   if (queryTenant && url.pathname === "/") {
-    return NextResponse.rewrite(new URL(`/tenant/${queryTenant.toLowerCase()}`, req.url));
+    return NextResponse.rewrite(new URL(`/${queryTenant.toLowerCase()}`, req.url));
   }
 
   // Extract clean host
@@ -41,10 +40,6 @@ export function middleware(req: NextRequest) {
     host === "127.0.0.1" ||
     host === "aroadmap.localhost"
   ) {
-    // If user navigates to direct /tenant/... path, let it pass
-    if (url.pathname.startsWith("/tenant/")) {
-      return NextResponse.next();
-    }
     return NextResponse.next();
   }
 
@@ -57,8 +52,8 @@ export function middleware(req: NextRequest) {
   }
 
   if (subdomain && subdomain !== "www" && subdomain !== "app") {
-    // Rewrite to tenant subpath: /tenant/[subdomain]
-    const tenantPath = `/tenant/${subdomain}${url.pathname === "/" ? "" : url.pathname}`;
+    // Rewrite directly to dynamic tenant route: /[subdomain]
+    const tenantPath = `/${subdomain}${url.pathname === "/" ? "" : url.pathname}`;
     return NextResponse.rewrite(new URL(tenantPath, req.url));
   }
 

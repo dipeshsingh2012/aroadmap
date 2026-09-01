@@ -6,13 +6,7 @@ import {
   Layers,
   Sparkles,
   ArrowRight,
-  CheckCircle2,
   Rocket,
-  ShieldCheck,
-  Zap,
-  Globe,
-  Plus,
-  Terminal,
 } from "lucide-react";
 
 export default function MarketingPage() {
@@ -21,7 +15,7 @@ export default function MarketingPage() {
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (newSubdomain.trim()) {
-      window.location.href = `/tenant/${newSubdomain.toLowerCase().trim()}`;
+      window.location.href = `/${newSubdomain.toLowerCase().trim()}`;
     }
   };
 
@@ -42,13 +36,13 @@ export default function MarketingPage() {
 
           <div className="flex items-center gap-4 text-xs font-semibold">
             <Link
-              href="/tenant/rfqengine"
+              href="/rfqengine"
               className="text-slate-600 hover:text-blue-600 transition-colors hidden sm:inline"
             >
               Explore RFPEngine Roadmap
             </Link>
             <Link
-              href="/tenant/rfqengine"
+              href="/rfqengine"
               className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors"
             >
               Launch Demo →
@@ -101,13 +95,13 @@ export default function MarketingPage() {
         <div className="pt-2 flex items-center justify-center gap-3 text-xs text-slate-500 flex-wrap">
           <span>Live Examples:</span>
           <Link
-            href="/tenant/rfqengine"
+            href="/rfqengine"
             className="font-mono text-blue-600 hover:underline bg-slate-100 px-2.5 py-1 rounded-md"
           >
             rfqengine.aroadmap.dev
           </Link>
           <Link
-            href="/tenant/fleet"
+            href="/fleet"
             className="font-mono text-violet-600 hover:underline bg-slate-100 px-2.5 py-1 rounded-md"
           >
             fleet.aroadmap.dev
