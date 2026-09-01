@@ -6,9 +6,9 @@
   "/api/tenants/[tenant]/initiatives/route": "/api/tenants/[tenant]/initiatives",
   "/api/tenants/[tenant]/reset/route": "/api/tenants/[tenant]/reset",
   "/api/tenants/[tenant]/route": "/api/tenants/[tenant]",
-  "/api/tenants/route": "/api/tenants",
   "/api/tenants/check-subdomain/route": "/api/tenants/check-subdomain",
-  "/home/page": "/home",
+  "/api/tenants/route": "/api/tenants",
   "/new/page": "/new",
+  "/home/page": "/home",
   "/[domain]/page": "/[domain]"
 }

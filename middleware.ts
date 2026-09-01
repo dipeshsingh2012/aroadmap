@@ -52,8 +52,8 @@ export function middleware(req: NextRequest) {
 
   if (tenantSlug && tenantSlug !== "www" && tenantSlug !== "app") {
     // Rewrite internally to dynamic [domain] path
-    // e.g. https://rfqengine.aroadmap.dev/ -> app/[domain]/page.tsx (domain = 'rfqengine')
-    // e.g. https://rfqengine.aroadmap.dev/changelog -> app/[domain]/changelog/page.tsx
+    // e.g. https://rfpengine.aroadmap.dev/ -> app/[domain]/page.tsx (domain = 'rfpengine')
+    // e.g. https://rfpengine.aroadmap.dev/changelog -> app/[domain]/changelog/page.tsx
     const targetPath = `/${tenantSlug}${url.pathname === "/" ? "" : url.pathname}`;
     return NextResponse.rewrite(new URL(targetPath, req.url));
   }

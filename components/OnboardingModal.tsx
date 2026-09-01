@@ -360,7 +360,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. dipeshsingh2012/rfqengine or your-org/repo"
+                  placeholder="e.g. dipeshsingh2012/rfpengine or your-org/repo"
                   value={githubRepo}
                   onChange={(e) => setGithubRepo(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none"

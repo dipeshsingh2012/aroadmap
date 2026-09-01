@@ -64,11 +64,11 @@ async function runMigration() {
     `);
 
     // 3. Seed initial canonical tenants
-    console.log("Upserting initial tenants (rfqengine, fleet)...");
+    console.log("Upserting initial tenants (rfpengine, fleet)...");
     await client.query(`
       INSERT INTO aroadmap_tenants (id, name, subdomain, tagline, brand_color, github_repo, visibility)
       VALUES 
-        ('rfqengine', 'RFPEngine', 'rfqengine', 'AI-Native RFP & Enterprise Proposal Acceleration Platform', '#2563EB', 'dipeshsingh2012/rfqengine', 'public'),
+        ('rfpengine', 'RFPEngine', 'rfpengine', 'AI-Native RFP & Enterprise Proposal Acceleration Platform', '#2563EB', 'dipeshsingh2012/rfpengine', 'public'),
         ('fleet', 'Agentic Fleet', 'fleet', 'Autonomous Multi-Agent Swarm Orchestrator & SDLC Engine', '#7C3AED', 'dipeshsingh2012/agentic-fleet', 'public')
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -84,11 +84,11 @@ async function runMigration() {
 
     let migratedCount = 0;
     for (const row of existingRes.rows) {
-      // Map tenant_id to 'rfqengine' if default/test-tenant
+      // Map tenant_id to 'rfpengine' if default/test-tenant
       const tenantId =
         row.tenant_id === "fleet"
           ? "fleet"
-          : "rfqengine";
+          : "rfpengine";
 
       const successMetrics =
         typeof row.success_metrics === "string"
