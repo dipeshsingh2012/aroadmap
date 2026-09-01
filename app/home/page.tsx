@@ -113,7 +113,7 @@ export default function PlatformHomePage() {
         mcpServers: {
           aroadmap: {
             url: "https://aroadmap.dev/api/mcp",
-            headers: { "X-Tenant-ID": "rfqengine" },
+            headers: { "X-Tenant-ID": "rfpengine" },
           },
         },
       },
@@ -132,7 +132,7 @@ export default function PlatformHomePage() {
       null,
       2
     ),
-    claude: `claude mcp add aroadmap https://aroadmap.dev/api/mcp --header "X-Tenant-ID: rfqengine"`,
+    claude: `claude mcp add aroadmap https://aroadmap.dev/api/mcp --header "X-Tenant-ID: rfpengine"`,
   };
 
   return (
@@ -159,7 +159,7 @@ export default function PlatformHomePage() {
 
           <div className="flex items-center gap-4 text-xs font-semibold">
             <a
-              href={getTenantUrl("rfqengine")}
+              href={getTenantUrl("rfpengine")}
               className="text-slate-600 hover:text-blue-600 transition-colors hidden sm:inline-flex items-center gap-1"
             >
               Demo: RFPEngine <ExternalLink size={11} />
@@ -502,7 +502,7 @@ export default function PlatformHomePage() {
       <footer className="py-8 bg-slate-50 border-t border-slate-200/80 text-center text-xs text-slate-500 space-y-2">
         <p>© 2026 aroadmap.dev · The Multi-Tenant Product Strategy & Autonomous SDLC Hub</p>
         <div className="flex items-center justify-center gap-4 text-xs font-semibold text-slate-600">
-          <a href={getTenantUrl("rfqengine")} className="hover:text-blue-600">RFPEngine Roadmap</a>
+          <a href={getTenantUrl("rfpengine")} className="hover:text-blue-600">RFPEngine Roadmap</a>
           <a href="/new" className="hover:text-blue-600">Onboard Tenant</a>
           <a href="https://github.com/dipeshsingh2012/aroadmap" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900">GitHub</a>
         </div>

@@ -13,7 +13,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", default: "rfqengine", description: "Tenant workspace ID (e.g. 'rfqengine')." },
+            tenant_id: { type: "string", default: "rfpengine", description: "Tenant workspace ID (e.g. 'rfpengine')." },
             title: { type: "string", description: "Clear, descriptive title of the feature or opportunity." },
             summary: { type: "string", description: "Executive 1-2 sentence summary of what is being built." },
             stage: {
@@ -68,7 +68,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", default: "rfqengine", description: "Tenant workspace ID." },
+            tenant_id: { type: "string", default: "rfpengine", description: "Tenant workspace ID." },
             item_id: { type: "string", description: "Initiative ID to update." },
             updates: {
               type: "object",
@@ -109,7 +109,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", default: "rfqengine", description: "Tenant workspace ID." },
+            tenant_id: { type: "string", default: "rfpengine", description: "Tenant workspace ID." },
             item_id: { type: "string", description: "Target initiative ID." },
             stage: {
               type: "string",
@@ -129,7 +129,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", default: "rfqengine", description: "Tenant workspace ID." },
+            tenant_id: { type: "string", default: "rfpengine", description: "Tenant workspace ID." },
             item_id: { type: "string", description: "Initiative ID to retrieve." },
           },
           required: ["item_id"],
@@ -142,7 +142,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", default: "rfqengine", description: "Tenant workspace ID." },
+            tenant_id: { type: "string", default: "rfpengine", description: "Tenant workspace ID." },
             stage: { type: "string", enum: ["all", "discovery", "spec", "approved", "development", "shipped"], default: "all" },
             theme: { type: "string", default: "all" },
             priority: { type: "string" },
@@ -158,7 +158,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", default: "rfqengine", description: "Tenant workspace ID." },
+            tenant_id: { type: "string", default: "rfpengine", description: "Tenant workspace ID." },
             item_id: { type: "string", description: "Initiative ID to delete." },
           },
           required: ["item_id"],
@@ -174,7 +174,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", default: "rfqengine", description: "Tenant workspace ID." },
+            tenant_id: { type: "string", default: "rfpengine", description: "Tenant workspace ID." },
             version: { type: "string", default: "v1.0.0", description: "Release version tag (e.g. 'v1.4.0')." },
             quarter: { type: "string", description: "Optional filter by quarter (e.g. 'Q3 2026' or 'Shipped')." },
             item_ids: { type: "array", items: { type: "string" }, description: "Optional list of specific initiative IDs." },
@@ -188,7 +188,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", default: "rfqengine", description: "Tenant workspace ID." },
+            tenant_id: { type: "string", default: "rfpengine", description: "Tenant workspace ID." },
             version: { type: "string", description: "Release version tag (e.g. 'v1.4.0')." },
             item_ids: { type: "array", items: { type: "string" }, description: "Array of initiative IDs included in this release." },
             pr_url: { type: "string", description: "GitHub Pull Request URL." },
@@ -207,7 +207,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", default: "rfqengine" },
+            tenant_id: { type: "string", default: "rfpengine" },
             action: { type: "string", enum: ["list", "get", "update"], default: "list" },
             item_id: { type: "string" },
             stage: { type: "string" },
@@ -259,7 +259,7 @@ export class MCPServerHandler {
     if (method === "tools/call") {
       const name = params?.name;
       const args = params?.arguments || {};
-      const tenantId = (args.tenant_id || "rfqengine").toLowerCase().trim();
+      const tenantId = (args.tenant_id || "rfpengine").toLowerCase().trim();
 
       let rawResult: any = {};
 

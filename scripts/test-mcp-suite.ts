@@ -54,7 +54,7 @@ async function runTestSuite() {
     params: {
       name: "create_initiative",
       arguments: {
-        tenant_id: "rfqengine",
+        tenant_id: "rfpengine",
         title: "Automated RFP Question Answering with Hybrid RAG",
         summary: "Autonomous extraction and retrieval of answers for vendor RFP questions.",
         theme: "Core AI & Retrieval",
@@ -89,7 +89,7 @@ async function runTestSuite() {
     params: {
       name: "get_initiative",
       arguments: {
-        tenant_id: "rfqengine",
+        tenant_id: "rfpengine",
         item_id: createdId
       }
     }
@@ -106,7 +106,7 @@ async function runTestSuite() {
     params: {
       name: "update_initiative",
       arguments: {
-        tenant_id: "rfqengine",
+        tenant_id: "rfpengine",
         item_id: createdId,
         updates: {
           quarter: "Q3 2026",
@@ -130,7 +130,7 @@ async function runTestSuite() {
     params: {
       name: "transition_initiative_stage",
       arguments: {
-        tenant_id: "rfqengine",
+        tenant_id: "rfpengine",
         item_id: createdId,
         stage: "development",
         feedback: "Approved in sprint planning 14"
@@ -148,7 +148,7 @@ async function runTestSuite() {
     params: {
       name: "list_initiatives",
       arguments: {
-        tenant_id: "rfqengine",
+        tenant_id: "rfpengine",
         search: "Hybrid RAG"
       }
     }
@@ -164,10 +164,10 @@ async function runTestSuite() {
     params: {
       name: "publish_release",
       arguments: {
-        tenant_id: "rfqengine",
+        tenant_id: "rfpengine",
         version: "v2.0.0",
         item_ids: [createdId],
-        pr_url: "https://github.com/dipeshsingh2012/rfqengine/pull/42",
+        pr_url: "https://github.com/dipeshsingh2012/rfpengine/pull/42",
         release_summary: "Major release featuring Automated Hybrid RAG QA Engine"
       }
     }
@@ -184,7 +184,7 @@ async function runTestSuite() {
     params: {
       name: "generate_release_notes",
       arguments: {
-        tenant_id: "rfqengine",
+        tenant_id: "rfpengine",
         version: "v2.0.0",
         item_ids: [createdId]
       }
@@ -207,7 +207,7 @@ async function runTestSuite() {
     params: {
       name: "delete_initiative",
       arguments: {
-        tenant_id: "rfqengine",
+        tenant_id: "rfpengine",
         item_id: createdId
       }
     }
@@ -222,7 +222,7 @@ async function runTestSuite() {
     params: {
       name: "get_initiative",
       arguments: {
-        tenant_id: "rfqengine",
+        tenant_id: "rfpengine",
         item_id: createdId
       }
     }

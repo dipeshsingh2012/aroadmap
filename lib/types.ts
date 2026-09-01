@@ -40,13 +40,13 @@ export interface RoadmapInitiative {
 }
 
 export interface Tenant {
-  id: string;             // e.g. 'rfqengine'
+  id: string;             // e.g. 'rfpengine'
   name: string;           // e.g. 'RFPEngine'
-  subdomain: string;      // 'rfqengine'
+  subdomain: string;      // 'rfpengine'
   tagline?: string;       // 'AI-Native RFP & Proposal Acceleration Engine'
   logo_url?: string;
   brand_color?: string;   // '#2563EB'
-  github_repo?: string;   // 'dipeshsingh2012/rfqengine'
+  github_repo?: string;   // 'dipeshsingh2012/rfpengine'
   visibility?: "public" | "private" | "password";
   created_at?: string;
 }
