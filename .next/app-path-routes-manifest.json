@@ -1,0 +1,11 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/api/mcp/route": "/api/mcp",
+  "/api/tenants/[tenant]/initiatives/[id]/route": "/api/tenants/[tenant]/initiatives/[id]",
+  "/api/tenants/[tenant]/initiatives/route": "/api/tenants/[tenant]/initiatives",
+  "/api/tenants/[tenant]/reset/route": "/api/tenants/[tenant]/reset",
+  "/api/tenants/[tenant]/route": "/api/tenants/[tenant]",
+  "/api/tenants/[tenant]/initiatives/[id]/upvote/route": "/api/tenants/[tenant]/initiatives/[id]/upvote",
+  "/(marketing)/page": "/",
+  "/(tenant)/[tenant]/page": "/[tenant]"
+}

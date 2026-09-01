@@ -1,0 +1,104 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/api/tenants/[tenant]",
+      "regex": "^/api/tenants/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtenant": "nxtPtenant"
+      },
+      "namedRegex": "^/api/tenants/(?<nxtPtenant>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/tenants/[tenant]/initiatives",
+      "regex": "^/api/tenants/([^/]+?)/initiatives(?:/)?$",
+      "routeKeys": {
+        "nxtPtenant": "nxtPtenant"
+      },
+      "namedRegex": "^/api/tenants/(?<nxtPtenant>[^/]+?)/initiatives(?:/)?$"
+    },
+    {
+      "page": "/api/tenants/[tenant]/initiatives/[id]",
+      "regex": "^/api/tenants/([^/]+?)/initiatives/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtenant": "nxtPtenant",
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/tenants/(?<nxtPtenant>[^/]+?)/initiatives/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/tenants/[tenant]/initiatives/[id]/upvote",
+      "regex": "^/api/tenants/([^/]+?)/initiatives/([^/]+?)/upvote(?:/)?$",
+      "routeKeys": {
+        "nxtPtenant": "nxtPtenant",
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/tenants/(?<nxtPtenant>[^/]+?)/initiatives/(?<nxtPid>[^/]+?)/upvote(?:/)?$"
+    },
+    {
+      "page": "/api/tenants/[tenant]/reset",
+      "regex": "^/api/tenants/([^/]+?)/reset(?:/)?$",
+      "routeKeys": {
+        "nxtPtenant": "nxtPtenant"
+      },
+      "namedRegex": "^/api/tenants/(?<nxtPtenant>[^/]+?)/reset(?:/)?$"
+    },
+    {
+      "page": "/[tenant]",
+      "regex": "^/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtenant": "nxtPtenant"
+      },
+      "namedRegex": "^/(?<nxtPtenant>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}
