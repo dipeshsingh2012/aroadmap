@@ -28,22 +28,22 @@ export async function POST(req: NextRequest) {
 
     const promptText = `
 You are a Staff Product Manager expert in Teresa Torres' Continuous Discovery Habits and Jobs-to-be-Done (JTBD) framework.
-Given the following customer opportunity / feature seed:
-- Title/Seed: "${rawTitle || currentSituation}"
-- Current Persona: "${currentPersona}"
-- Current Strategic Theme: "${currentTheme}"
-- Existing Situation: "${currentSituation}"
+Analyze the following customer opportunity / feature seed and formulate a structured, highly specific Continuous Discovery PRD framing:
 
-Generate a complete, structured customer opportunity framing in valid JSON format:
+Feature Seed: "${rawTitle || currentSituation}"
+Current Target Persona: "${currentPersona}"
+Current Strategic Pillar: "${currentTheme}"
+
+Respond ONLY with a valid JSON object matching this schema:
 {
-  "title": "Refined, punchy opportunity title (e.g. Model Context Protocol (MCP) Server for IDE & Agentic Integrations)",
-  "persona": "Target user persona (one of: Proposal Manager, Security SME, Legal Counsel, AI Engineer, IT Administrator, Head of Sales / RevOps, Bid Team, Product Lead)",
+  "title": "Refined, punchy opportunity title capturing the core capability",
+  "persona": "Target user persona (e.g. Proposal Manager, Security SME, Legal Counsel, AI Engineer, IT Administrator, Head of Sales / RevOps, Bid Team, Product Lead)",
   "theme": "Strategic Pillar (one of: Smart Ingestion, Enterprise Governance, Core AI & Retrieval, Ecosystem Integrations, Collaboration & Workflow)",
   "priority": "Priority level (one of: P0 - Critical, P1 - High, P2 - Medium, P3 - Low)",
   "situation": "Detailed Situation & Trigger: When in the workflow does this friction occur? (start with 'When...')",
   "workaround": "Current painful workaround: How do users suffer today? (start with 'Today, ...')",
   "outcome": "Measurable Desired Outcome & KPI: (e.g. 'Reduce turnaround time from 3 days to < 2 hours with 0 errors')",
-  "hypothesis": "Proposed Solution Hypothesis: (e.g. 'A standard Model Context Protocol (MCP) endpoint exposing living PRDs and backlog tools...')",
+  "hypothesis": "Proposed Solution Hypothesis: (e.g. 'A structured capability that solves this friction by...')",
   "tags": ["SearchTag1", "SearchTag2", "SearchTag3"],
   "rice": {
     "reach": 75,
@@ -52,36 +52,49 @@ Generate a complete, structured customer opportunity framing in valid JSON forma
     "effort": 3
   }
 }
-Respond ONLY with the raw JSON object.
 `;
 
-    // 1. Try Google Gemini API if GEMINI_API_KEY is present
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (geminiKey) {
-      try {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: promptText }] }],
-              generationConfig: { responseMimeType: "application/json" },
-            }),
-          }
-        );
+    // 1. Try Google Gemini API across all common environment variable names
+    const geminiKey =
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.GOOGLE_GENAI_API_KEY;
 
-        if (geminiRes.ok) {
-          const geminiData = await geminiRes.json();
-          const rawResponse = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawResponse) {
-            const parsed = JSON.parse(rawResponse);
-            const normalized = normalizeSuggestion(parsed, rawTitle || currentSituation);
-            return NextResponse.json({ ...normalized, generated_by: "gemini" });
+    if (geminiKey) {
+      const modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+      
+      for (const modelName of modelsToTry) {
+        try {
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey.trim()}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: promptText }] }],
+                generationConfig: {
+                  responseMimeType: "application/json",
+                  temperature: 0.3,
+                },
+              }),
+            }
+          );
+
+          if (geminiRes.ok) {
+            const geminiData = await geminiRes.json();
+            const rawResponse = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawResponse) {
+              const parsed = JSON.parse(rawResponse);
+              const normalized = normalizeSuggestion(parsed, rawTitle || currentSituation);
+              return NextResponse.json({ ...normalized, generated_by: `gemini (${modelName})` });
+            }
+          } else {
+            const errBody = await geminiRes.text();
+            console.warn(`Gemini API call to ${modelName} returned status ${geminiRes.status}:`, errBody);
           }
+        } catch (err: any) {
+          console.warn(`Gemini API attempt (${modelName}) failed:`, err.message);
         }
-      } catch (err) {
-        console.warn("Gemini API suggestion failed, falling back to local engine:", err);
       }
     }
 
@@ -93,7 +106,7 @@ Respond ONLY with the raw JSON object.
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${openaiKey}`,
+            Authorization: `Bearer ${openaiKey.trim()}`,
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
@@ -123,7 +136,7 @@ Respond ONLY with the raw JSON object.
       }
     }
 
-    // 3. Precision Continuous Discovery Heuristics Engine
+    // 3. Precision Continuous Discovery Heuristics Engine (Offline Fallback)
     const synthesized = synthesizeOpportunity(rawTitle || currentSituation, currentPersona, currentTheme);
     return NextResponse.json({ ...synthesized, generated_by: "discovery-heuristics" });
   } catch (error: any) {
@@ -164,7 +177,26 @@ function synthesizeOpportunity(
   const query = input.toLowerCase();
 
   // ─────────────────────────────────────────────────────────────
-  // 1. SPECIFIC: MCP (Model Context Protocol) / AI Tool Calling / Agent Protocol
+  // 1. SPECIFIC: Onboarding / Tenant Profile / Company Metadata
+  // ─────────────────────────────────────────────────────────────
+  if (query.includes("onboard") || query.includes("company info") || query.includes("industry") || query.includes("tech stack") || query.includes("tenant") || query.includes("metadata") || query.includes("profile") || query.includes("settings")) {
+    const reach = 85, impact = 4, confidence = 90, effort = 2;
+    return {
+      title: "Optional Tenant Profile & Domain Metadata in Onboarding",
+      persona: "Product Lead",
+      theme: "Enterprise Governance",
+      priority: "P1 - High" as PriorityLevel,
+      situation: `When a new organization onboards and wants continuous discovery suggestions tailored to their exact industry, customer persona, and tech stack without being forced through a rigid mandatory intake form.`,
+      workaround: `Today, discovery AI relies on generic baseline presets, resulting in off-target recommendations for specialized industries.`,
+      outcome: `Increase AI suggestion relevance and 1-click acceptance rate from 35% to > 85% by grounding prompts in optional tenant profile metadata.`,
+      hypothesis: `An optional 'Domain & Tech Stack' step in the onboarding modal and workspace settings page that feeds company metadata directly into the AI discovery prompt context.`,
+      tags: ["Onboarding", "Tenant Profiling", "Domain Context", "AI Personalization", "UX"],
+      rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. SPECIFIC: MCP (Model Context Protocol) / AI Tool Calling
   // ─────────────────────────────────────────────────────────────
   if (query.includes("mcp") || query.includes("model context protocol") || query.includes("tool calling") || query.includes("agent tool") || query.includes("json-rpc")) {
     const reach = 80, impact = 5, confidence = 90, effort = 2;
@@ -183,7 +215,7 @@ function synthesizeOpportunity(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 2. SPECIFIC: SSO / Auth / Security / RBAC / SAML / Okta
+  // 3. SPECIFIC: SSO / Auth / Security / RBAC / SAML / Okta
   // ─────────────────────────────────────────────────────────────
   if (query.includes("sso") || query.includes("saml") || query.includes("auth") || query.includes("okta") || query.includes("login") || query.includes("rbac") || query.includes("oauth") || query.includes("security")) {
     const reach = 85, impact = 4, confidence = 90, effort = 2;
@@ -202,7 +234,7 @@ function synthesizeOpportunity(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 3. SPECIFIC: Spreadsheets / Excel / Ingestion / CSV / Tables / Parsing
+  // 4. SPECIFIC: Spreadsheets / Excel / Ingestion / CSV / Tables
   // ─────────────────────────────────────────────────────────────
   if (query.includes("excel") || query.includes("sheet") || query.includes("csv") || query.includes("table") || query.includes("column") || query.includes("format") || query.includes("ingest") || query.includes("parse")) {
     const reach = 90, impact = 4, confidence = 85, effort = 2.5;
@@ -221,7 +253,7 @@ function synthesizeOpportunity(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 4. SPECIFIC: RAG / Vector Search / Embeddings / BM25 / Semantic
+  // 5. SPECIFIC: RAG / Vector Search / Embeddings / BM25
   // ─────────────────────────────────────────────────────────────
   if (query.includes("search") || query.includes("rag") || query.includes("vector") || query.includes("retriev") || query.includes("embed") || query.includes("bm25") || query.includes("semantic")) {
     const reach = 80, impact = 5, confidence = 85, effort = 3;
@@ -240,7 +272,7 @@ function synthesizeOpportunity(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 5. SPECIFIC: Autonomous Agent Swarm / SDLC / Fleet / GitHub PR Review
+  // 6. SPECIFIC: Autonomous Agent Swarm / SDLC / Fleet / GitHub PR
   // ─────────────────────────────────────────────────────────────
   if (query.includes("agent") || query.includes("fleet") || query.includes("pr review") || query.includes("git") || query.includes("dev agent") || query.includes("qa agent") || query.includes("sdlc")) {
     const reach = 75, impact = 5, confidence = 80, effort = 3.5;
@@ -259,7 +291,7 @@ function synthesizeOpportunity(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 6. SPECIFIC: Multiplayer / Collaboration / Live / Real-Time / WebSockets
+  // 7. SPECIFIC: Multiplayer / Collaboration / Live / Real-Time / WebSockets
   // ─────────────────────────────────────────────────────────────
   if (query.includes("multiplayer") || query.includes("realtime") || query.includes("real-time") || query.includes("websocket") || query.includes("cursor") || query.includes("presence") || query.includes("live edit")) {
     const reach = 70, impact = 4, confidence = 80, effort = 3;
@@ -278,7 +310,7 @@ function synthesizeOpportunity(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 7. SPECIFIC: CRM / Salesforce / HubSpot / Deal Velocity
+  // 8. SPECIFIC: CRM / Salesforce / HubSpot / Deal Velocity
   // ─────────────────────────────────────────────────────────────
   if (query.includes("salesforce") || query.includes("hubspot") || query.includes("crm") || query.includes("deal") || query.includes("pipeline") || query.includes("revops")) {
     const reach = 65, impact = 4, confidence = 85, effort = 2.5;
@@ -297,7 +329,7 @@ function synthesizeOpportunity(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 8. GENERAL API / Webhook / Ecosystem Connectors
+  // 9. GENERAL API / Webhook / Ecosystem Connectors
   // ─────────────────────────────────────────────────────────────
   if (query.includes("webhook") || query.includes("api") || query.includes("rest") || query.includes("graphql") || query.includes("connector") || query.includes("integrat") || query.includes("plugin")) {
     const reach = 75, impact = 4, confidence = 85, effort = 2.5;
@@ -316,20 +348,20 @@ function synthesizeOpportunity(
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 9. GENERAL / DYNAMIC FALLBACK
+  // 10. DYNAMIC CONTEXTUAL FALLBACK
   // ─────────────────────────────────────────────────────────────
   const cleanInput = capitalize(input);
-  const reach = 60, impact = 3, confidence = 75, effort = 3;
+  const reach = 65, impact = 3.5, confidence = 80, effort = 3;
   return {
-    title: cleanInput.length > 5 ? cleanInput : `${cleanInput} Acceleration & Automation`,
-    persona: fallbackPersona || "Proposal Manager",
-    theme: fallbackTheme || "Smart Ingestion",
+    title: cleanInput.length > 60 ? cleanInput.slice(0, 57) + "..." : cleanInput,
+    persona: fallbackPersona || "Product Lead",
+    theme: fallbackTheme || "Collaboration & Workflow",
     priority: "P1 - High" as PriorityLevel,
-    situation: `When ${fallbackPersona || "team"} users execute their daily workflow and encounter friction with ${input.toLowerCase()}.`,
-    workaround: `Today, teams rely on fragmented manual workarounds, spreadsheets, and repetitive copy-pasting across disparate tools.`,
-    outcome: `Reduce turnaround friction by > 60% and improve end-to-end data accuracy with automated validation.`,
-    hypothesis: `An automated workflow capability that directly addresses ${input.toLowerCase()} with real-time feedback and structured verification.`,
-    tags: ["Continuous Discovery", "Opportunity", "Automation"],
+    situation: `When team members attempt to ${cleanInput.toLowerCase().replace(/^(request for |add |build |implement )/i, "")} during their daily operations.`,
+    workaround: `Today, teams rely on fragmented manual workarounds, ad-hoc spreadsheets, and disconnected communications.`,
+    outcome: `Streamline operational cycle time by > 50% and eliminate manual coordination errors.`,
+    hypothesis: `An automated capability that directly implements structured support for this workflow with continuous validation.`,
+    tags: ["Continuous Discovery", "Opportunity", "Feature Request"],
     rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
   };
 }
