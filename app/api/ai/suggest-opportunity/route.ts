@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { computeRICEScore, PriorityLevel, StrategicTheme, STRATEGIC_THEMES } from "@/lib/types";
 
 interface SuggestionRequest {
   title?: string;
@@ -33,15 +34,23 @@ Given the following customer opportunity / feature seed:
 - Current Strategic Theme: "${currentTheme}"
 - Existing Situation: "${currentSituation}"
 
-Generate a structured customer opportunity framing in valid JSON format:
+Generate a complete, structured customer opportunity framing in valid JSON format:
 {
   "title": "Refined, punchy opportunity title (e.g. Automated Spreadsheet Column Mapping for 300-Row Questionnaires)",
-  "persona": "Target user persona (e.g. Proposal Manager, Security SME, Legal Counsel, AI Engineer, IT Administrator, Head of Sales / RevOps, Bid Team)",
+  "persona": "Target user persona (one of: Proposal Manager, Security SME, Legal Counsel, AI Engineer, IT Administrator, Head of Sales / RevOps, Bid Team)",
   "theme": "Strategic Pillar (one of: Smart Ingestion, Enterprise Governance, Core AI & Retrieval, Ecosystem Integrations, Collaboration & Workflow)",
+  "priority": "Priority level (one of: P0 - Critical, P1 - High, P2 - Medium, P3 - Low)",
   "situation": "Detailed Situation & Trigger: When in the workflow does this friction occur? (start with 'When...')",
-  "workaround": "Current painful workaround: How do users suffer today? (e.g. 'Today, users manually copy-paste...')",
+  "workaround": "Current painful workaround: How do users suffer today? (start with 'Today, ...')",
   "outcome": "Measurable Desired Outcome & KPI: (e.g. 'Reduce turnaround time from 3 days to < 2 hours with 0 errors')",
-  "hypothesis": "Proposed Solution Hypothesis: (e.g. 'A client-side WebAssembly parser with column heuristics and 1-click in-place export...')"
+  "hypothesis": "Proposed Solution Hypothesis: (e.g. 'A client-side WebAssembly parser with column heuristics and 1-click in-place export...')",
+  "tags": ["SearchTag1", "SearchTag2", "SearchTag3"],
+  "rice": {
+    "reach": 75,
+    "impact": 4,
+    "confidence": 85,
+    "effort": 3
+  }
 }
 Respond ONLY with the raw JSON object.
 `;
@@ -64,11 +73,11 @@ Respond ONLY with the raw JSON object.
 
         if (geminiRes.ok) {
           const geminiData = await geminiRes.json();
-          const rawResponse =
-            geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+          const rawResponse = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawResponse) {
             const parsed = JSON.parse(rawResponse);
-            return NextResponse.json({ ...parsed, generated_by: "gemini" });
+            const normalized = normalizeSuggestion(parsed, rawTitle || currentSituation);
+            return NextResponse.json({ ...normalized, generated_by: "gemini" });
           }
         }
       } catch (err) {
@@ -105,7 +114,8 @@ Respond ONLY with the raw JSON object.
           const content = openaiData?.choices?.[0]?.message?.content;
           if (content) {
             const parsed = JSON.parse(content);
-            return NextResponse.json({ ...parsed, generated_by: "openai" });
+            const normalized = normalizeSuggestion(parsed, rawTitle || currentSituation);
+            return NextResponse.json({ ...normalized, generated_by: "openai" });
           }
         }
       } catch (err) {
@@ -113,7 +123,7 @@ Respond ONLY with the raw JSON object.
       }
     }
 
-    // 3. Intelligent Heuristic Continuous Discovery Engine (Fast, High-Quality, Zero-Dependency)
+    // 3. Intelligent Heuristic Continuous Discovery Engine
     const synthesized = synthesizeOpportunity(rawTitle || currentSituation, currentPersona, currentTheme);
     return NextResponse.json({ ...synthesized, generated_by: "discovery-heuristics" });
   } catch (error: any) {
@@ -125,6 +135,27 @@ Respond ONLY with the raw JSON object.
   }
 }
 
+function normalizeSuggestion(data: any, originalInput: string) {
+  const reach = Number(data?.rice?.reach || 70);
+  const impact = Number(data?.rice?.impact || 3);
+  const confidence = Number(data?.rice?.confidence || 80);
+  const effort = Math.max(0.5, Number(data?.rice?.effort || 3));
+  const score = computeRICEScore({ reach, impact, confidence, effort });
+
+  return {
+    title: data.title || capitalize(originalInput),
+    persona: data.persona || "Proposal Manager",
+    theme: data.theme || "Smart Ingestion",
+    priority: data.priority || "P1 - High",
+    situation: data.situation || `When users execute their workflow with ${originalInput}...`,
+    workaround: data.workaround || `Today, users rely on manual spreadsheets and disconnected documents...`,
+    outcome: data.outcome || `Reduce completion turnaround time by > 50% with zero compliance errors.`,
+    hypothesis: data.hypothesis || `An automated feature that directly addresses ${originalInput} with structured verification.`,
+    tags: Array.isArray(data.tags) && data.tags.length > 0 ? data.tags : ["Continuous Discovery", "Opportunity", "JTBD"],
+    rice: { reach, impact, confidence, effort, score },
+  };
+}
+
 function synthesizeOpportunity(
   input: string,
   fallbackPersona: string,
@@ -132,89 +163,122 @@ function synthesizeOpportunity(
 ) {
   const query = input.toLowerCase();
 
-  // Pattern matching for diverse product discovery themes
-  if (query.includes("sso") || query.includes("saml") || query.includes("auth") || query.includes("okta") || query.includes("login") || query.includes("rbac")) {
+  // Pattern 1: SSO / Auth / Security / RBAC
+  if (query.includes("sso") || query.includes("saml") || query.includes("auth") || query.includes("okta") || query.includes("login") || query.includes("rbac") || query.includes("security")) {
+    const reach = 85, impact = 4, confidence = 90, effort = 2;
     return {
       title: input.length > 5 ? capitalize(input) : "Enterprise SSO & Automated Role-Based Access Control",
       persona: "IT Administrator",
       theme: "Enterprise Governance",
+      priority: "P0 - Critical" as PriorityLevel,
       situation: `When an enterprise customer onboards team members across multiple departments and needs centralized identity management.`,
       workaround: `Today, administrators manually provision accounts, manage separate passwords in spreadsheets, and lack automatic de-provisioning on employee offboarding.`,
       outcome: `Achieve 100% SAML 2.0 / OIDC compliance and reduce IT onboarding ticket volume by > 80%.`,
       hypothesis: `An enterprise SSO gateway supporting Okta, Azure AD, and Google Workspace with SCIM directory synchronization.`,
+      tags: ["Auth", "Security", "SSO", "Enterprise", "Okta"],
+      rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
     };
   }
 
-  if (query.includes("excel") || query.includes("sheet") || query.includes("csv") || query.includes("table") || query.includes("import") || query.includes("column") || query.includes("format")) {
+  // Pattern 2: Excel / Spreadsheet / Ingestion / CSV / Tables
+  if (query.includes("excel") || query.includes("sheet") || query.includes("csv") || query.includes("table") || query.includes("import") || query.includes("column") || query.includes("format") || query.includes("ingest")) {
+    const reach = 90, impact = 4, confidence = 85, effort = 2.5;
     return {
       title: input.length > 5 ? capitalize(input) : "Intelligent Spreadsheet Ingestion & Automatic Column Mapping",
       persona: "Proposal Manager",
       theme: "Smart Ingestion",
+      priority: "P1 - High" as PriorityLevel,
       situation: `When a customer uploads a complex multi-tab spreadsheet questionnaire with merged header cells and nested section groups.`,
       workaround: `Today, bid teams spend 4-8 hours manually normalizing tables, reformatting merged cells, and copy-pasting questions row-by-row.`,
       outcome: `Parse 500+ row complex spreadsheets in < 5 seconds with > 98% column identification accuracy.`,
       hypothesis: `A client-side WebAssembly heuristic parser that automatically detects header topologies and maps question/answer columns.`,
+      tags: ["Spreadsheets", "Ingestion", "Wasm", "Excel", "Parsing"],
+      rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
     };
   }
 
+  // Pattern 3: RAG / Search / Vectors / Embeddings / BM25
   if (query.includes("search") || query.includes("rag") || query.includes("vector") || query.includes("retriev") || query.includes("embed") || query.includes("bm25") || query.includes("hybrid")) {
+    const reach = 80, impact = 5, confidence = 85, effort = 3;
     return {
       title: input.length > 5 ? capitalize(input) : "Hybrid Vector + Keyword Search with Contextual Re-Ranking",
       persona: "AI Engineer",
       theme: "Core AI & Retrieval",
+      priority: "P1 - High" as PriorityLevel,
       situation: `When searching across dense technical compliance policies and buyer questionnaires with specific alphanumeric codes and part numbers.`,
       workaround: `Today, standard vector search overlooks exact SKU numbers, while pure keyword search misses conceptually related compliance standards.`,
       outcome: `Boost top-3 retrieval recall to > 95% with sub-100ms p95 latency.`,
       hypothesis: `A hybrid retrieval pipeline combining pgvector dense embeddings and BM25 full-text indexing fused via Reciprocal Rank Fusion (RRF).`,
+      tags: ["RAG", "pgvector", "BM25", "Search", "Embeddings"],
+      rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
     };
   }
 
-  if (query.includes("agent") || query.includes("fleet") || query.includes("review") || query.includes("pr") || query.includes("git") || query.includes("dev") || query.includes("qa") || query.includes("code")) {
+  // Pattern 4: Agent / SDLC / Fleet / Git / Review / Code
+  if (query.includes("agent") || query.includes("fleet") || query.includes("review") || query.includes("pr") || query.includes("git") || query.includes("dev") || query.includes("qa") || query.includes("code") || query.includes("sdlc")) {
+    const reach = 75, impact = 5, confidence = 80, effort = 3.5;
     return {
       title: input.length > 5 ? capitalize(input) : "Autonomous Multi-Agent SDLC Dispatch & Continuous PR Review",
       persona: "Proposal Manager",
       theme: "Collaboration & Workflow",
+      priority: "P1 - High" as PriorityLevel,
       situation: `When a validated feature specification is signed off and ready for implementation without waiting for manual engineering sprint grooming.`,
       workaround: `Today, product specs sit in backlog queues for weeks waiting for developer capacity to draft boilerplate and unit tests.`,
       outcome: `Accelerate spec-to-PR cycle time from 10 days to < 1 hour with automated test verification.`,
       hypothesis: `An autonomous multi-agent swarm router that converts Gherkin acceptance criteria into git branches, code commits, and verified PRs.`,
+      tags: ["Agents", "SDLC", "Multi-Agent", "Autonomous", "GitHub"],
+      rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
     };
   }
 
-  if (query.includes("collab") || query.includes("multiplayer") || query.includes("comment") || query.includes("share") || query.includes("slack") || query.includes("notif")) {
+  // Pattern 5: Multiplayer / Collaboration / Live / Real-time / Comments
+  if (query.includes("collab") || query.includes("multiplayer") || query.includes("comment") || query.includes("share") || query.includes("slack") || query.includes("notif") || query.includes("realtime")) {
+    const reach = 70, impact = 4, confidence = 80, effort = 3;
     return {
       title: input.length > 5 ? capitalize(input) : "Real-Time Multiplayer Collaboration & Inline Threaded Reviews",
       persona: "Bid Team",
       theme: "Collaboration & Workflow",
+      priority: "P1 - High" as PriorityLevel,
       situation: `When multiple subject matter experts (Legal, Security, Engineering) review a critical proposal simultaneously before deadline.`,
       workaround: `Today, reviewers lock documents, email disconnected PDF versions, and manually merge conflicting edits.`,
       outcome: `Eliminate version conflicts completely and reduce multi-party review cycles by 65%.`,
       hypothesis: `A live multiplayer editing engine with live avatar cursors, inline resolution threads, and real-time WebSockets synchronization.`,
+      tags: ["Multiplayer", "Realtime", "WebSockets", "Collaboration"],
+      rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
     };
   }
 
+  // Pattern 6: CRM / Integrations / Salesforce / HubSpot / Webhooks
   if (query.includes("integrat") || query.includes("api") || query.includes("salesforce") || query.includes("hubspot") || query.includes("crm") || query.includes("webhook")) {
+    const reach = 65, impact = 4, confidence = 85, effort = 2.5;
     return {
       title: input.length > 5 ? capitalize(input) : "Two-Way CRM & Ecosystem Integrations (Salesforce, HubSpot)",
       persona: "Head of Sales / RevOps",
       theme: "Ecosystem Integrations",
+      priority: "P1 - High" as PriorityLevel,
       situation: `When an account executive closes an opportunity stage in CRM and needs immediate proposal generation without leaving Salesforce.`,
       workaround: `Today, sales reps manually duplicate deal parameters, re-type customer requirements into separate tools, and miss deadline SLAs.`,
       outcome: `Automate 100% of deal-to-proposal handoffs and sync proposal completion status back to CRM opportunities.`,
       hypothesis: `Native bi-directional CRM connectors with webhook triggers and automatic workspace provisioning.`,
+      tags: ["CRM", "Salesforce", "HubSpot", "Integrations", "Webhooks"],
+      rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
     };
   }
 
   // General fallback
   const cleanInput = capitalize(input);
+  const reach = 60, impact = 3, confidence = 75, effort = 3;
   return {
     title: cleanInput.length > 5 ? cleanInput : `${cleanInput} Acceleration & Automation`,
     persona: fallbackPersona || "Proposal Manager",
     theme: fallbackTheme || "Smart Ingestion",
-    situation: `When ${fallbackPersona} users execute their daily workflow and encounter friction with ${input.toLowerCase()}.`,
+    priority: "P1 - High" as PriorityLevel,
+    situation: `When ${fallbackPersona || "team"} users execute their daily workflow and encounter friction with ${input.toLowerCase()}.`,
     workaround: `Today, teams rely on fragmented manual workarounds, spreadsheets, and repetitive copy-pasting across disparate tools.`,
     outcome: `Reduce turnaround friction by > 60% and improve end-to-end data accuracy with automated validation.`,
     hypothesis: `An automated workflow capability that directly addresses ${input.toLowerCase()} with real-time feedback and structured verification.`,
+    tags: ["Continuous Discovery", "Opportunity", "Automation"],
+    rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
   };
 }
 

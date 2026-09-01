@@ -1,8 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Lightbulb, Plus, Sparkles, Loader2, Wand2 } from "lucide-react";
-import { StrategicTheme, STRATEGIC_THEMES, RoadmapInitiative } from "@/lib/types";
+import { X, Lightbulb, Plus, Sparkles, Loader2, Wand2, Zap, Tag, BarChart3 } from "lucide-react";
+import {
+  StrategicTheme,
+  STRATEGIC_THEMES,
+  RoadmapInitiative,
+  PriorityLevel,
+  computeRICEScore,
+} from "@/lib/types";
 
 interface OpportunityModalProps {
   isOpen: boolean;
@@ -19,6 +25,24 @@ const DISCOVERY_STARTERS = [
   "Enterprise SSO & SAML Auth",
 ];
 
+const STANDARD_PERSONAS = [
+  "Proposal Manager",
+  "Security SME",
+  "Legal Counsel",
+  "Head of Sales / RevOps",
+  "Bid Team",
+  "AI Engineer",
+  "IT Administrator",
+  "Product Lead",
+];
+
+const PRIORITY_LEVELS: PriorityLevel[] = [
+  "P0 - Critical",
+  "P1 - High",
+  "P2 - Medium",
+  "P3 - Low",
+];
+
 export const OpportunityModal: React.FC<OpportunityModalProps> = ({
   isOpen,
   onClose,
@@ -27,19 +51,64 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
   const [title, setTitle] = useState("");
   const [persona, setPersona] = useState("Proposal Manager");
   const [theme, setTheme] = useState<StrategicTheme>("Smart Ingestion");
+  const [priority, setPriority] = useState<PriorityLevel>("P1 - High");
   const [situation, setSituation] = useState("");
   const [workaround, setWorkaround] = useState("");
   const [outcome, setOutcome] = useState("");
   const [hypothesis, setHypothesis] = useState("");
+  const [tagsInput, setTagsInput] = useState("Continuous Discovery, Opportunity, JTBD");
+  
+  // RICE score state
+  const [reach, setReach] = useState(75);
+  const [impact, setImpact] = useState(4);
+  const [confidence, setConfidence] = useState(85);
+  const [effort, setEffort] = useState(3);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
+  const currentRiceScore = computeRICEScore({ reach, impact, confidence, effort });
+
+  const normalizeAndSetPersona = (suggestedPersona: string) => {
+    if (!suggestedPersona) return;
+    const exact = STANDARD_PERSONAS.find(
+      (p) => p.toLowerCase() === suggestedPersona.toLowerCase()
+    );
+    if (exact) {
+      setPersona(exact);
+      return;
+    }
+    const partial = STANDARD_PERSONAS.find(
+      (p) =>
+        p.toLowerCase().includes(suggestedPersona.toLowerCase()) ||
+        suggestedPersona.toLowerCase().includes(p.toLowerCase())
+    );
+    if (partial) {
+      setPersona(partial);
+    } else {
+      setPersona(suggestedPersona);
+    }
+  };
+
+  const normalizeAndSetTheme = (suggestedTheme: string) => {
+    if (!suggestedTheme) return;
+    const match = STRATEGIC_THEMES.find(
+      (t) =>
+        t.toLowerCase() === suggestedTheme.toLowerCase() ||
+        t.toLowerCase().includes(suggestedTheme.toLowerCase()) ||
+        suggestedTheme.toLowerCase().includes(t.toLowerCase())
+    );
+    if (match) {
+      setTheme(match);
+    }
+  };
+
   const handleAiSuggest = async (overrideSeed?: string) => {
     const seed = overrideSeed || title || situation;
     if (!seed.trim()) {
-      setAiNotice("⚠️ Please type an opportunity title or topic first.");
+      setAiNotice("⚠️ Please type an opportunity title or select an inspiration starter first.");
       setTimeout(() => setAiNotice(null), 3000);
       return;
     }
@@ -66,18 +135,30 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
       }
 
       const data = await res.json();
+      
+      // Populate ALL form fields reactively
       if (data.title) setTitle(data.title);
-      if (data.persona) setPersona(data.persona);
-      if (data.theme && STRATEGIC_THEMES.includes(data.theme as StrategicTheme)) {
-        setTheme(data.theme as StrategicTheme);
-      }
+      if (data.persona) normalizeAndSetPersona(data.persona);
+      if (data.theme) normalizeAndSetTheme(data.theme);
+      if (data.priority && PRIORITY_LEVELS.includes(data.priority)) setPriority(data.priority);
       if (data.situation) setSituation(data.situation);
       if (data.workaround) setWorkaround(data.workaround);
       if (data.outcome) setOutcome(data.outcome);
       if (data.hypothesis) setHypothesis(data.hypothesis);
+      
+      if (Array.isArray(data.tags) && data.tags.length > 0) {
+        setTagsInput(data.tags.join(", "));
+      }
 
-      setAiNotice("✨ Continuous discovery framing generated! Review and tweak below.");
-      setTimeout(() => setAiNotice(null), 4000);
+      if (data.rice) {
+        if (typeof data.rice.reach === "number") setReach(data.rice.reach);
+        if (typeof data.rice.impact === "number") setImpact(data.rice.impact);
+        if (typeof data.rice.confidence === "number") setConfidence(data.rice.confidence);
+        if (typeof data.rice.effort === "number") setEffort(data.rice.effort);
+      }
+
+      setAiNotice("✨ Complete opportunity framing generated across all fields! Review and tweak below.");
+      setTimeout(() => setAiNotice(null), 4500);
     } catch (err: any) {
       console.error("AI Auto-complete error:", err);
       setAiNotice("⚠️ AI suggestion temporarily unavailable. You can still fill fields manually.");
@@ -94,15 +175,28 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
     const fullProblem = `Context & Trigger: ${situation.trim()}\n\nCurrent Workaround: ${workaround.trim() || "Manual copy-pasting across departments."}`;
     const userStory = `As a ${persona}, when ${situation.trim()}, I want ${hypothesis.trim() || title.trim()}, so that ${outcome.trim() || "our proposal turnaround time is reduced with zero errors"}.`;
 
+    const parsedTags = tagsInput
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const calculatedRice = {
+      reach,
+      impact,
+      confidence,
+      effort,
+      score: currentRiceScore,
+    };
+
     const newInit: Partial<RoadmapInitiative> = {
       id: `custom-${Date.now()}`,
       title: title.trim(),
       stage: "discovery",
       theme,
-      priority: "P1 - High",
+      priority,
       target_persona: persona,
       quarter: "In Discovery",
-      summary: situation.trim().slice(0, 130) + "...",
+      summary: situation.trim().slice(0, 130) + (situation.length > 130 ? "..." : ""),
       problem_statement: fullProblem,
       user_story: userStory,
       success_metrics: [
@@ -118,9 +212,9 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
       technical_architecture: hypothesis.trim()
         ? `Hypothesis: ${hypothesis.trim()}`
         : "To be determined during technical refinement spike with engineering leads.",
-      rice: { reach: 70, impact: 3, confidence: 75, effort: 3, score: 52.5 },
+      rice: calculatedRice,
       upvotes: 1,
-      tags: ["Continuous Discovery", "Opportunity", "JTBD", "Community Backlog"],
+      tags: parsedTags.length > 0 ? parsedTags : ["Continuous Discovery", "Opportunity", "JTBD"],
     };
 
     onSubmit(newInit);
@@ -137,7 +231,7 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-xl w-full p-6 text-xs text-slate-800 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full p-6 text-xs text-slate-800 space-y-4 max-h-[92vh] overflow-y-auto">
         <div className="flex items-start justify-between pb-3 border-b border-slate-200">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -147,7 +241,7 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
               Continuous Discovery Framework (Teresa Torres OST + Jobs-to-be-Done)
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
             <X size={18} />
           </button>
         </div>
@@ -160,11 +254,11 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
               AI Continuous Discovery Assistant
             </span>
             <span className="text-[10px] text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full font-medium">
-              OST + JTBD
+              OST + JTBD + RICE
             </span>
           </div>
           <p className="text-blue-900 text-[11px] leading-relaxed">
-            Type an initial title or click a starter topic below, then click <strong>✨ AI Auto-Complete</strong> to automatically frame the situation, workaround, outcome metric, and solution hypothesis.
+            Type any initial phrase or click an inspiration below, then click <strong>✨ AI Auto-Complete</strong> to automatically populate all 10 problem framing and prioritization fields.
           </p>
 
           <div className="flex items-center gap-1.5 flex-wrap pt-1">
@@ -188,10 +282,13 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
 
         {aiNotice && (
           <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-[11px] font-medium flex items-center justify-between animate-fadeIn">
-            <span>{aiNotice}</span>
+            <span className="flex items-center gap-1.5">
+              <Zap size={13} className="text-emerald-600" />
+              {aiNotice}
+            </span>
             <button
               onClick={() => setAiNotice(null)}
-              className="text-emerald-600 hover:text-emerald-800 text-[10px] font-bold"
+              className="text-emerald-600 hover:text-emerald-800 text-[10px] font-bold cursor-pointer"
             >
               ✕
             </button>
@@ -199,6 +296,7 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
+          {/* 1. Title & AI Action */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="font-bold text-slate-700">
@@ -208,17 +306,17 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
                 type="button"
                 onClick={() => handleAiSuggest()}
                 disabled={isGenerating || (!title.trim() && !situation.trim())}
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-md text-[11px] font-semibold transition-all shadow-2xs cursor-pointer disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-md text-[11px] font-semibold transition-all shadow-2xs cursor-pointer disabled:cursor-not-allowed"
               >
                 {isGenerating ? (
                   <>
                     <Loader2 size={12} className="animate-spin" />
-                    <span>Framing...</span>
+                    <span>Framing All Fields...</span>
                   </>
                 ) : (
                   <>
                     <Wand2 size={12} />
-                    <span>AI Auto-Complete</span>
+                    <span>AI Auto-Complete All</span>
                   </>
                 )}
               </button>
@@ -229,25 +327,24 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
               placeholder="e.g. Automated Spreadsheet Column Mapping for 300-Row Questionnaires"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Tri-Column Metadata: Persona, Strategic Theme, Priority */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Target User Persona:</label>
+              <label className="block font-bold text-slate-700 mb-1">Target Persona:</label>
               <select
                 value={persona}
                 onChange={(e) => setPersona(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
-                <option value="Proposal Manager">Proposal Manager</option>
-                <option value="Security SME">Security SME</option>
-                <option value="Legal Counsel">Legal Counsel</option>
-                <option value="Head of Sales">Head of Sales / RevOps</option>
-                <option value="Bid Team">Bid Team</option>
-                <option value="AI Engineer">AI Engineer</option>
-                <option value="IT Administrator">IT Administrator</option>
+                {STANDARD_PERSONAS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -256,7 +353,7 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
               <select
                 value={theme}
                 onChange={(e) => setTheme(e.target.value as StrategicTheme)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 {STRATEGIC_THEMES.map((t) => (
                   <option key={t} value={t}>
@@ -265,8 +362,24 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Priority Level:</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as PriorityLevel)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
+              >
+                {PRIORITY_LEVELS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
+          {/* 2. Situation & Trigger */}
           <div>
             <label className="block font-bold text-slate-700 mb-1">2. Situation & Trigger (When...):</label>
             <textarea
@@ -275,21 +388,23 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
               placeholder="When in the workflow does this pain happen? (e.g. When a buyer provides a multi-tab Excel spreadsheet with custom merged headers...)"
               value={situation}
               onChange={(e) => setSituation(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all leading-relaxed"
             />
           </div>
 
+          {/* 3. Current Workaround */}
           <div>
-            <label className="block font-bold text-slate-700 mb-1">3. Current Workaround:</label>
+            <label className="block font-bold text-slate-700 mb-1">3. Current Workaround (Today, ...):</label>
             <textarea
               rows={2}
               placeholder="e.g. Today, our bid team manually copies 300 questions one-by-one into Google Docs, emails 4 engineers..."
               value={workaround}
               onChange={(e) => setWorkaround(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all leading-relaxed"
             />
           </div>
 
+          {/* 4. Desired Outcome & KPI */}
           <div>
             <label className="block font-bold text-slate-700 mb-1">4. Desired Outcome & KPI:</label>
             <input
@@ -297,10 +412,11 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
               placeholder="e.g. Reduce questionnaire completion time from 3 days to < 2 hours with 0 errors"
               value={outcome}
               onChange={(e) => setOutcome(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
             />
           </div>
 
+          {/* 5. Proposed Solution Hypothesis */}
           <div>
             <label className="block font-bold text-slate-700 mb-1">5. Proposed Solution Hypothesis:</label>
             <textarea
@@ -308,8 +424,84 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
               placeholder="e.g. A client-side WebAssembly parser with column heuristics and 1-click in-place export..."
               value={hypothesis}
               onChange={(e) => setHypothesis(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all leading-relaxed"
             />
+          </div>
+
+          {/* 6. Tags */}
+          <div>
+            <label className="font-bold text-slate-700 mb-1 flex items-center gap-1">
+              <Tag size={12} className="text-slate-500" /> Search Tags (comma-separated):
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Ingestion, Spreadsheets, Automation, Wasm"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
+          </div>
+
+          {/* 7. RICE Prioritization Mini-Control */}
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-700 text-[11px] flex items-center gap-1.5">
+                <BarChart3 size={13} className="text-blue-600" />
+                RICE Prioritization Scores
+              </span>
+              <span className="text-[11px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                Score: {currentRiceScore}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px]">
+              <div>
+                <label className="block text-slate-500 font-medium">Reach ({reach}%):</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={reach}
+                  onChange={(e) => setReach(Number(e.target.value))}
+                  className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-500 font-medium">Impact ({impact}x):</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  step="0.5"
+                  value={impact}
+                  onChange={(e) => setImpact(Number(e.target.value))}
+                  className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-500 font-medium">Confidence ({confidence}%):</label>
+                <input
+                  type="number"
+                  min="10"
+                  max="100"
+                  value={confidence}
+                  onChange={(e) => setConfidence(Number(e.target.value))}
+                  className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-500 font-medium">Effort ({effort} wks):</label>
+                <input
+                  type="number"
+                  min="0.5"
+                  max="20"
+                  step="0.5"
+                  value={effort}
+                  onChange={(e) => setEffort(Number(e.target.value))}
+                  className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">

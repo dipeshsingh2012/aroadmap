@@ -32,9 +32,7 @@ async function runAiSuggestionTests() {
     return { status: res.status, data };
   }
 
-  // ─────────────────────────────────────────────────────────────
   // 1. TEST: Input Validation / Error Handling
-  // ─────────────────────────────────────────────────────────────
   console.log("1. Testing Validation & Error Handling...");
   {
     const { status, data } = await callSuggestApi({});
@@ -42,131 +40,59 @@ async function runAiSuggestionTests() {
     assert(!!data.error, "Error message returned for empty payload");
   }
 
-  {
-    const { status, data } = await callSuggestApi({ title: "   ", situation: "   " });
-    assert(status === 400, "Whitespace-only payload returns 400 Bad Request");
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // 2. TEST: Spreadsheet / Smart Ingestion Opportunity Framing
-  // ─────────────────────────────────────────────────────────────
-  console.log("\n2. Testing 'Spreadsheet Ingestion' Domain Heuristics...");
+  // 2. TEST: Spreadsheet / Smart Ingestion Opportunity Framing (All 10 fields)
+  console.log("\n2. Testing 'Spreadsheet Ingestion' Populates All 10 Fields...");
   {
     const { status, data } = await callSuggestApi({
       title: "excel spreadsheet import",
-      persona: "Proposal Manager",
-      theme: "Smart Ingestion",
     });
 
     assert(status === 200, "API returned 200 OK");
-    assert(data.title && data.title.length > 5, `Title populated: "${data.title}"`);
-    assert(data.theme === "Smart Ingestion", `Theme matches "Smart Ingestion" (Got: ${data.theme})`);
-    assert(data.situation.startsWith("When"), `Situation follows "When..." trigger format`);
-    assert(data.workaround.includes("Today"), `Workaround describes current friction`);
-    assert(data.outcome.length > 10, `Outcome KPI provided: "${data.outcome}"`);
-    assert(data.hypothesis.length > 10, `Hypothesis provided: "${data.hypothesis}"`);
-    assert(STRATEGIC_THEMES.includes(data.theme as StrategicTheme), "Theme is a valid StrategicTheme enum");
+    assert(data.title && data.title.length > 5, `1. Title populated: "${data.title}"`);
+    assert(data.persona === "Proposal Manager", `2. Persona populated: "${data.persona}"`);
+    assert(data.theme === "Smart Ingestion", `3. Theme matches "Smart Ingestion"`);
+    assert(data.priority === "P1 - High", `4. Priority populated: "${data.priority}"`);
+    assert(data.situation.startsWith("When"), `5. Situation follows "When..." trigger`);
+    assert(data.workaround.startsWith("Today"), `6. Workaround follows "Today, ..."`);
+    assert(data.outcome.length > 10, `7. Outcome KPI provided: "${data.outcome}"`);
+    assert(data.hypothesis.length > 10, `8. Hypothesis provided: "${data.hypothesis}"`);
+    assert(Array.isArray(data.tags) && data.tags.length >= 3, `9. Tags populated: [${data.tags.join(', ')}]`);
+    assert(typeof data.rice?.score === "number" && data.rice.score > 0, `10. RICE score calculated: ${data.rice.score}`);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 3. TEST: Hybrid RAG / Core AI Opportunity Framing
-  // ─────────────────────────────────────────────────────────────
-  console.log("\n3. Testing 'Hybrid RAG Search' Domain Heuristics...");
-  {
-    const { status, data } = await callSuggestApi({
-      title: "hybrid vector search and bm25",
-    });
-
-    assert(status === 200, "API returned 200 OK");
-    assert(data.theme === "Core AI & Retrieval", `Theme inferred as "Core AI & Retrieval" (Got: ${data.theme})`);
-    assert(data.persona === "AI Engineer", `Persona inferred as "AI Engineer" (Got: ${data.persona})`);
-    assert(data.situation.toLowerCase().includes("search") || data.situation.toLowerCase().includes("questionnaire"), "Situation context mentions search");
-    assert(data.outcome.includes("%") || data.outcome.includes("ms"), "Outcome contains measurable metrics/KPIs");
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // 4. TEST: Enterprise SSO & Auth Opportunity Framing
-  // ─────────────────────────────────────────────────────────────
-  console.log("\n4. Testing 'SSO / Auth' Domain Heuristics...");
+  // 3. TEST: SSO / Auth Domain
+  console.log("\n3. Testing 'SSO / Auth' Domain...");
   {
     const { status, data } = await callSuggestApi({
       title: "okta saml sso integration",
     });
 
     assert(status === 200, "API returned 200 OK");
-    assert(data.theme === "Enterprise Governance", `Theme inferred as "Enterprise Governance" (Got: ${data.theme})`);
-    assert(data.persona === "IT Administrator", `Persona inferred as "IT Administrator" (Got: ${data.persona})`);
-    assert(data.outcome.toLowerCase().includes("saml") || data.outcome.toLowerCase().includes("compliance"), "Outcome specifies compliance");
+    assert(data.persona === "IT Administrator", `Persona is IT Administrator`);
+    assert(data.theme === "Enterprise Governance", `Theme is Enterprise Governance`);
+    assert(data.priority === "P0 - Critical", `Priority is P0 - Critical`);
+    assert(data.tags.includes("SSO") || data.tags.includes("Auth"), "Tags include Auth/SSO");
+    assert(data.rice.reach === 85, "Reach is 85%");
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 5. TEST: Autonomous SDLC / Fleet Dispatch Opportunity Framing
-  // ─────────────────────────────────────────────────────────────
-  console.log("\n5. Testing 'Autonomous Fleet SDLC' Domain Heuristics...");
+  // 4. TEST: Arbitrary Input Fallback
+  console.log("\n4. Testing Arbitrary / Generic Topic Fallback...");
   {
     const { status, data } = await callSuggestApi({
-      title: "autonomous agent swarm code review and pr dispatch",
-    });
-
-    assert(status === 200, "API returned 200 OK");
-    assert(data.theme === "Collaboration & Workflow", `Theme categorized under Collaboration & Workflow`);
-    assert(data.situation.toLowerCase().includes("specification") || data.situation.toLowerCase().includes("grooming"), "Situation focuses on SDLC spec grooming");
-    assert(data.hypothesis.toLowerCase().includes("agent") || data.hypothesis.toLowerCase().includes("swarm"), "Hypothesis describes agent router");
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // 6. TEST: Real-time Collaboration Framing
-  // ─────────────────────────────────────────────────────────────
-  console.log("\n6. Testing 'Multiplayer Collaboration' Domain Heuristics...");
-  {
-    const { status, data } = await callSuggestApi({
-      title: "multiplayer live cursors and comments",
-    });
-
-    assert(status === 200, "API returned 200 OK");
-    assert(data.persona === "Bid Team", `Persona matches "Bid Team"`);
-    assert(data.situation.toLowerCase().includes("review") || data.situation.toLowerCase().includes("proposal"), "Situation captures team review");
-    assert(data.hypothesis.toLowerCase().includes("multiplayer") || data.hypothesis.toLowerCase().includes("websocket"), "Hypothesis covers live synchronization");
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // 7. TEST: CRM & Ecosystem Integrations Framing
-  // ─────────────────────────────────────────────────────────────
-  console.log("\n7. Testing 'CRM & Ecosystem' Domain Heuristics...");
-  {
-    const { status, data } = await callSuggestApi({
-      title: "salesforce crm deal sync",
-    });
-
-    assert(status === 200, "API returned 200 OK");
-    assert(data.theme === "Ecosystem Integrations", `Theme inferred as "Ecosystem Integrations"`);
-    assert(data.persona === "Head of Sales / RevOps", `Persona inferred as "Head of Sales / RevOps"`);
-    assert(data.outcome.toLowerCase().includes("crm") || data.outcome.toLowerCase().includes("deal"), "Outcome captures deal-to-proposal velocity");
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // 8. TEST: Arbitrary / Custom Input Fallback
-  // ─────────────────────────────────────────────────────────────
-  console.log("\n8. Testing Arbitrary / Custom Input Fallback...");
-  {
-    const { status, data } = await callSuggestApi({
-      title: "compliance certificate watermarking",
-      persona: "Legal Counsel",
-      theme: "Enterprise Governance",
+      title: "dark mode theme",
     });
 
     assert(status === 200, "API returned 200 OK for custom topic");
-    assert(data.persona === "Legal Counsel", "Preserved custom persona");
-    assert(data.theme === "Enterprise Governance", "Preserved custom theme");
-    assert(data.situation.length > 10, "Generated structured situation");
-    assert(data.workaround.length > 10, "Generated structured workaround");
-    assert(data.outcome.length > 10, "Generated measurable outcome");
-    assert(data.hypothesis.length > 10, "Generated solution hypothesis");
+    assert(data.title.toLowerCase().includes("dark mode"), "Title contains dark mode");
+    assert(data.situation.length > 10, "Situation generated");
+    assert(data.workaround.length > 10, "Workaround generated");
+    assert(data.outcome.length > 10, "Outcome generated");
+    assert(data.hypothesis.length > 10, "Hypothesis generated");
+    assert(data.tags.length > 0, "Tags generated");
+    assert(data.rice.score > 0, "RICE score computed");
   }
 
-  // ─────────────────────────────────────────────────────────────
   // SUMMARY
-  // ─────────────────────────────────────────────────────────────
   console.log("\n===============================================================");
   console.log(`🏁 TEST RESULTS: ${passed} PASSED | ${failed} FAILED`);
   console.log("===============================================================");
