@@ -12,6 +12,8 @@ interface SuggestionRequest {
 }
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+
   try {
     const body: SuggestionRequest = await req.json();
     const rawTitle = (body.title || "").trim();
@@ -19,7 +21,10 @@ export async function POST(req: NextRequest) {
     const currentTheme = body.theme || "Smart Ingestion";
     const currentSituation = (body.situation || "").trim();
 
+    console.log(`[AI Suggestion] 📥 Request received. Seed: "${rawTitle || currentSituation}" | Persona: "${currentPersona}" | Theme: "${currentTheme}"`);
+
     if (!rawTitle && !currentSituation) {
+      console.warn("[AI Suggestion] ⚠️ Empty input payload received.");
       return NextResponse.json(
         { error: "Please provide an opportunity title or situation to generate suggestions." },
         { status: 400 }
@@ -54,16 +59,27 @@ Respond ONLY with a valid JSON object matching this schema:
 }
 `;
 
-    // 1. Try Google Gemini API across all common environment variable names
+    // 1. Check Google Gemini API keys across all environment aliases
     const geminiKey =
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_API_KEY ||
       process.env.GOOGLE_GENAI_API_KEY;
 
     if (geminiKey) {
+      const keySource = process.env.GEMINI_API_KEY
+        ? "GEMINI_API_KEY"
+        : process.env.GOOGLE_API_KEY
+        ? "GOOGLE_API_KEY"
+        : "GOOGLE_GENAI_API_KEY";
+
+      console.log(`[AI Suggestion] 🔑 Found active key via '${keySource}' (length: ${geminiKey.length}). Attempting Gemini invocation...`);
+
       const modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
       
       for (const modelName of modelsToTry) {
+        const llmStart = Date.now();
+        console.log(`[AI Suggestion] 🤖 Invoking Google Gemini model: '${modelName}'...`);
+
         try {
           const geminiRes = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey.trim()}`,
@@ -80,27 +96,34 @@ Respond ONLY with a valid JSON object matching this schema:
             }
           );
 
+          const durationMs = Date.now() - llmStart;
+
           if (geminiRes.ok) {
             const geminiData = await geminiRes.json();
             const rawResponse = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (rawResponse) {
               const parsed = JSON.parse(rawResponse);
               const normalized = normalizeSuggestion(parsed, rawTitle || currentSituation);
+              console.log(`[AI Suggestion] ✅ Gemini '${modelName}' completed in ${durationMs}ms. Generated title: "${normalized.title}" (${normalized.persona} / ${normalized.theme}). Total time: ${Date.now() - startTime}ms.`);
               return NextResponse.json({ ...normalized, generated_by: `gemini (${modelName})` });
             }
           } else {
             const errBody = await geminiRes.text();
-            console.warn(`Gemini API call to ${modelName} returned status ${geminiRes.status}:`, errBody);
+            console.warn(`[AI Suggestion] ⚠️ Gemini '${modelName}' failed with HTTP ${geminiRes.status} in ${durationMs}ms:`, errBody);
           }
         } catch (err: any) {
-          console.warn(`Gemini API attempt (${modelName}) failed:`, err.message);
+          console.warn(`[AI Suggestion] ⚠️ Gemini attempt ('${modelName}') exception:`, err.message);
         }
       }
+    } else {
+      console.log("[AI Suggestion] ℹ️ No GEMINI_API_KEY / GOOGLE_API_KEY detected in environment variables.");
     }
 
-    // 2. Try OpenAI API if OPENAI_API_KEY is present
+    // 2. Check OpenAI API if OPENAI_API_KEY is present
     const openaiKey = process.env.OPENAI_API_KEY;
     if (openaiKey) {
+      console.log("[AI Suggestion] 🔑 Attempting OpenAI fallback (gpt-4o-mini)...");
+      const openaiStart = Date.now();
       try {
         const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
@@ -122,25 +145,32 @@ Respond ONLY with a valid JSON object matching this schema:
           }),
         });
 
+        const durationMs = Date.now() - openaiStart;
+
         if (openaiRes.ok) {
           const openaiData = await openaiRes.json();
           const content = openaiData?.choices?.[0]?.message?.content;
           if (content) {
             const parsed = JSON.parse(content);
             const normalized = normalizeSuggestion(parsed, rawTitle || currentSituation);
+            console.log(`[AI Suggestion] ✅ OpenAI completed in ${durationMs}ms. Generated: "${normalized.title}". Total: ${Date.now() - startTime}ms.`);
             return NextResponse.json({ ...normalized, generated_by: "openai" });
           }
+        } else {
+          const errText = await openaiRes.text();
+          console.warn(`[AI Suggestion] ⚠️ OpenAI failed with HTTP ${openaiRes.status}:`, errText);
         }
-      } catch (err) {
-        console.warn("OpenAI API suggestion failed, falling back to local engine:", err);
+      } catch (err: any) {
+        console.warn("[AI Suggestion] ⚠️ OpenAI exception:", err.message);
       }
     }
 
-    // 3. Precision Continuous Discovery Heuristics Engine (Offline Fallback)
+    // 3. Precision Continuous Discovery Heuristics Engine (Offline / Fallback)
+    console.log(`[AI Suggestion] ⚡ Routing to Precision Discovery Heuristic Engine. Total time: ${Date.now() - startTime}ms.`);
     const synthesized = synthesizeOpportunity(rawTitle || currentSituation, currentPersona, currentTheme);
     return NextResponse.json({ ...synthesized, generated_by: "discovery-heuristics" });
   } catch (error: any) {
-    console.error("AI Opportunity Suggestion Error:", error);
+    console.error("[AI Suggestion] ❌ Unhandled Exception in API Route:", error);
     return NextResponse.json(
       { error: "Failed to generate suggestions", details: error.message },
       { status: 500 }
@@ -176,9 +206,7 @@ function synthesizeOpportunity(
 ) {
   const query = input.toLowerCase();
 
-  // ─────────────────────────────────────────────────────────────
-  // 1. SPECIFIC: Onboarding / Tenant Profile / Company Metadata
-  // ─────────────────────────────────────────────────────────────
+  // 1. Onboarding / Tenant Profile / Company Metadata
   if (query.includes("onboard") || query.includes("company info") || query.includes("industry") || query.includes("tech stack") || query.includes("tenant") || query.includes("metadata") || query.includes("profile") || query.includes("settings")) {
     const reach = 85, impact = 4, confidence = 90, effort = 2;
     return {
@@ -195,9 +223,7 @@ function synthesizeOpportunity(
     };
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 2. SPECIFIC: MCP (Model Context Protocol) / AI Tool Calling
-  // ─────────────────────────────────────────────────────────────
+  // 2. MCP (Model Context Protocol) / AI Tool Calling
   if (query.includes("mcp") || query.includes("model context protocol") || query.includes("tool calling") || query.includes("agent tool") || query.includes("json-rpc")) {
     const reach = 80, impact = 5, confidence = 90, effort = 2;
     return {
@@ -214,9 +240,7 @@ function synthesizeOpportunity(
     };
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 3. SPECIFIC: SSO / Auth / Security / RBAC / SAML / Okta
-  // ─────────────────────────────────────────────────────────────
+  // 3. SSO / Auth / Security / RBAC / SAML / Okta
   if (query.includes("sso") || query.includes("saml") || query.includes("auth") || query.includes("okta") || query.includes("login") || query.includes("rbac") || query.includes("oauth") || query.includes("security")) {
     const reach = 85, impact = 4, confidence = 90, effort = 2;
     return {
@@ -233,9 +257,7 @@ function synthesizeOpportunity(
     };
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 4. SPECIFIC: Spreadsheets / Excel / Ingestion / CSV / Tables
-  // ─────────────────────────────────────────────────────────────
+  // 4. Spreadsheets / Excel / Ingestion / CSV / Tables
   if (query.includes("excel") || query.includes("sheet") || query.includes("csv") || query.includes("table") || query.includes("column") || query.includes("format") || query.includes("ingest") || query.includes("parse")) {
     const reach = 90, impact = 4, confidence = 85, effort = 2.5;
     return {
@@ -252,9 +274,7 @@ function synthesizeOpportunity(
     };
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 5. SPECIFIC: RAG / Vector Search / Embeddings / BM25
-  // ─────────────────────────────────────────────────────────────
+  // 5. RAG / Vector Search / Embeddings / BM25
   if (query.includes("search") || query.includes("rag") || query.includes("vector") || query.includes("retriev") || query.includes("embed") || query.includes("bm25") || query.includes("semantic")) {
     const reach = 80, impact = 5, confidence = 85, effort = 3;
     return {
@@ -271,9 +291,7 @@ function synthesizeOpportunity(
     };
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 6. SPECIFIC: Autonomous Agent Swarm / SDLC / Fleet / GitHub PR
-  // ─────────────────────────────────────────────────────────────
+  // 6. Autonomous Agent Swarm / SDLC / Fleet / GitHub PR
   if (query.includes("agent") || query.includes("fleet") || query.includes("pr review") || query.includes("git") || query.includes("dev agent") || query.includes("qa agent") || query.includes("sdlc")) {
     const reach = 75, impact = 5, confidence = 80, effort = 3.5;
     return {
@@ -290,9 +308,7 @@ function synthesizeOpportunity(
     };
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 7. SPECIFIC: Multiplayer / Collaboration / Live / Real-Time / WebSockets
-  // ─────────────────────────────────────────────────────────────
+  // 7. Multiplayer / Collaboration / Live / Real-Time / WebSockets
   if (query.includes("multiplayer") || query.includes("realtime") || query.includes("real-time") || query.includes("websocket") || query.includes("cursor") || query.includes("presence") || query.includes("live edit")) {
     const reach = 70, impact = 4, confidence = 80, effort = 3;
     return {
@@ -309,9 +325,7 @@ function synthesizeOpportunity(
     };
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 8. SPECIFIC: CRM / Salesforce / HubSpot / Deal Velocity
-  // ─────────────────────────────────────────────────────────────
+  // 8. CRM / Salesforce / HubSpot / Deal Velocity
   if (query.includes("salesforce") || query.includes("hubspot") || query.includes("crm") || query.includes("deal") || query.includes("pipeline") || query.includes("revops")) {
     const reach = 65, impact = 4, confidence = 85, effort = 2.5;
     return {
@@ -328,9 +342,7 @@ function synthesizeOpportunity(
     };
   }
 
-  // ─────────────────────────────────────────────────────────────
   // 9. GENERAL API / Webhook / Ecosystem Connectors
-  // ─────────────────────────────────────────────────────────────
   if (query.includes("webhook") || query.includes("api") || query.includes("rest") || query.includes("graphql") || query.includes("connector") || query.includes("integrat") || query.includes("plugin")) {
     const reach = 75, impact = 4, confidence = 85, effort = 2.5;
     return {
@@ -347,9 +359,7 @@ function synthesizeOpportunity(
     };
   }
 
-  // ─────────────────────────────────────────────────────────────
   // 10. DYNAMIC CONTEXTUAL FALLBACK
-  // ─────────────────────────────────────────────────────────────
   const cleanInput = capitalize(input);
   const reach = 65, impact = 3.5, confidence = 80, effort = 3;
   return {
