@@ -6,6 +6,6 @@ export async function POST(
   { params }: { params: Promise<{ tenant: string }> }
 ) {
   const { tenant } = await params;
-  const items = await RoadmapRepository.resetTenant(tenant);
-  return NextResponse.json({ message: "Tenant reset to defaults", total: items.length });
+  const items = await RoadmapRepository.listInitiatives(tenant);
+  return NextResponse.json({ message: "Tenant initiatives reloaded", total: items.length });
 }

@@ -8,7 +8,8 @@ import { ThemesView } from "@/components/ThemesView";
 import { PRDDrawer } from "@/components/PRDDrawer";
 import { OpportunityModal } from "@/components/OpportunityModal";
 import { RoadmapInitiative, RoadmapStage, Tenant } from "@/lib/types";
-import { SEED_TENANTS, SEED_INITIATIVES } from "@/lib/db/seed-data";
+import { Plus, Sparkles, Rocket } from "lucide-react";
+import Link from "next/link";
 
 export default function TenantDomainPage({
   params,
@@ -16,27 +17,19 @@ export default function TenantDomainPage({
   params: Promise<{ domain: string }>;
 }) {
   const resolvedParams = use(params);
-  const tenantId = resolvedParams.domain.toLowerCase();
+  const tenantId = resolvedParams.domain.toLowerCase().trim();
 
-  const [tenant, setTenant] = useState<Tenant>(() => {
-    const found = SEED_TENANTS.find((t) => t.id === tenantId);
-    return (
-      found || {
-        id: tenantId,
-        name: tenantId.charAt(0).toUpperCase() + tenantId.slice(1),
-        subdomain: tenantId,
-        tagline: "Live Product Strategy & Continuous Discovery Hub",
-        brand_color: "#2563EB",
-        visibility: "public",
-      }
-    );
+  const [tenant, setTenant] = useState<Tenant>({
+    id: tenantId,
+    name: tenantId.toUpperCase(),
+    subdomain: tenantId,
+    tagline: "Live Product Strategy & Continuous Discovery Hub",
+    brand_color: "#2563EB",
+    visibility: "public",
   });
 
-  const [initiatives, setInitiatives] = useState<RoadmapInitiative[]>(() => {
-    const initial = SEED_INITIATIVES[tenantId] || SEED_INITIATIVES.rfqengine || [];
-    return initial;
-  });
-
+  const [initiatives, setInitiatives] = useState<RoadmapInitiative[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [upvotedIds, setUpvotedIds] = useState<Set<string>>(new Set());
   const [selectedInitiative, setSelectedInitiative] = useState<RoadmapInitiative | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
@@ -51,9 +44,10 @@ export default function TenantDomainPage({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Fetch initial data from API
+  // Fetch live tenant and initiatives from Neon PostgreSQL
   useEffect(() => {
     async function loadData() {
+      setIsLoading(true);
       try {
         const [tenantRes, initRes] = await Promise.all([
           fetch(`/api/tenants/${tenantId}`),
@@ -62,22 +56,27 @@ export default function TenantDomainPage({
 
         if (tenantRes.ok) {
           const t = await tenantRes.json();
-          setTenant(t);
+          if (t && t.id) {
+            setTenant(t);
+          }
         }
+
         if (initRes.ok) {
           const inits = await initRes.json();
-          if (Array.isArray(inits) && inits.length > 0) {
+          if (Array.isArray(inits)) {
             setInitiatives(inits);
           }
         }
       } catch (err) {
-        console.warn("Using offline memory store for tenant:", err);
+        console.error("Error loading roadmap data from PostgreSQL:", err);
+      } finally {
+        setIsLoading(false);
       }
     }
     loadData();
   }, [tenantId]);
 
-  // Stage transition handler (Optimistic)
+  // Stage transition handler (Optimistic + DB sync)
   const handleMoveStage = async (id: string, stage: RoadmapStage) => {
     const targetItem = initiatives.find((i) => i.id === id);
     if (!targetItem || targetItem.stage === stage) return;
@@ -101,7 +100,7 @@ export default function TenantDomainPage({
     }
   };
 
-  // Upvote Handler (Optimistic)
+  // Upvote Handler (Optimistic + DB sync)
   const handleUpvote = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const isUpvoted = upvotedIds.has(id);
@@ -153,17 +152,16 @@ export default function TenantDomainPage({
 
   // Reset to default seed
   const handleResetDefaults = async () => {
-    if (window.confirm("Reset roadmap initiatives back to default catalog?")) {
+    if (window.confirm("Reload roadmap initiatives from database?")) {
       try {
-        await fetch(`/api/tenants/${tenantId}/reset`, { method: "POST" });
         const res = await fetch(`/api/tenants/${tenantId}/initiatives`);
         if (res.ok) {
           const items = await res.json();
           setInitiatives(items);
         }
-        showToast("🔄 Roadmap restored to canonical backlog.");
+        showToast("🔄 Roadmap reloaded from PostgreSQL.");
       } catch (err) {
-        console.warn("Failed to reset backlog:", err);
+        console.warn("Failed to reload backlog:", err);
       }
     }
   };
@@ -209,57 +207,84 @@ export default function TenantDomainPage({
 
       {/* Main Content Area */}
       <main className="flex-1">
-        {viewMode === "kanban" && (
-          <KanbanBoard
-            initiatives={filteredInitiatives}
-            upvotedIds={upvotedIds}
-            onUpvote={handleUpvote}
-            onSelectInitiative={(item) => setSelectedInitiative(item)}
-            onMoveStage={handleMoveStage}
-          />
-        )}
-
-        {viewMode === "rice" && (
-          <RICEMatrix
-            initiatives={filteredInitiatives}
-            upvotedIds={upvotedIds}
-            onUpvote={handleUpvote}
-            onSelectInitiative={(item) => setSelectedInitiative(item)}
-          />
-        )}
-
-        {viewMode === "themes" && (
-          <ThemesView
-            initiatives={filteredInitiatives}
-            upvotedIds={upvotedIds}
-            onUpvote={handleUpvote}
-            onSelectInitiative={(item) => setSelectedInitiative(item)}
-          />
-        )}
-
-        {viewMode === "changelog" && (
-          <div className="max-w-4xl mx-auto p-6 sm:p-8 space-y-6">
-            <div className="border-b border-slate-200 pb-4">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Public Changelog & Release History</h2>
-              <p className="text-xs text-slate-500 mt-1">Verified features shipped live to production</p>
-            </div>
-            <div className="space-y-4">
-              {initiatives
-                .filter((i) => i.stage === "shipped")
-                .map((item) => (
-                  <div key={item.id} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        🚀 Shipped & Live
-                      </span>
-                      <span className="text-xs text-slate-400 font-mono">{item.quarter}</span>
-                    </div>
-                    <h3 className="text-sm font-bold text-slate-900">{item.title}</h3>
-                    <p className="text-xs text-slate-600">{item.summary || item.problem_statement}</p>
-                  </div>
-                ))}
-            </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center p-20 text-slate-400 text-xs font-medium space-y-2 flex-col">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <span>Loading live roadmap from database...</span>
           </div>
+        ) : initiatives.length === 0 ? (
+          <div className="max-w-md mx-auto my-20 p-8 bg-white border border-slate-200 rounded-2xl text-center space-y-4 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto font-bold">
+              <Sparkles size={24} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-bold text-base text-slate-900">No Initiatives Yet</h3>
+              <p className="text-xs text-slate-500">
+                Start continuous discovery by capturing your first customer opportunity.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsOpportunityModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all inline-flex items-center gap-1.5"
+            >
+              <Plus size={14} /> Frame First Opportunity
+            </button>
+          </div>
+        ) : (
+          <>
+            {viewMode === "kanban" && (
+              <KanbanBoard
+                initiatives={filteredInitiatives}
+                upvotedIds={upvotedIds}
+                onUpvote={handleUpvote}
+                onSelectInitiative={(item) => setSelectedInitiative(item)}
+                onMoveStage={handleMoveStage}
+              />
+            )}
+
+            {viewMode === "rice" && (
+              <RICEMatrix
+                initiatives={filteredInitiatives}
+                upvotedIds={upvotedIds}
+                onUpvote={handleUpvote}
+                onSelectInitiative={(item) => setSelectedInitiative(item)}
+              />
+            )}
+
+            {viewMode === "themes" && (
+              <ThemesView
+                initiatives={filteredInitiatives}
+                upvotedIds={upvotedIds}
+                onUpvote={handleUpvote}
+                onSelectInitiative={(item) => setSelectedInitiative(item)}
+              />
+            )}
+
+            {viewMode === "changelog" && (
+              <div className="max-w-4xl mx-auto p-6 sm:p-8 space-y-6">
+                <div className="border-b border-slate-200 pb-4">
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">Public Changelog & Release History</h2>
+                  <p className="text-xs text-slate-500 mt-1">Verified features shipped live to production</p>
+                </div>
+                <div className="space-y-4">
+                  {initiatives
+                    .filter((i) => i.stage === "shipped")
+                    .map((item) => (
+                      <div key={item.id} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            🚀 Shipped & Live
+                          </span>
+                          <span className="text-xs text-slate-400 font-mono">{item.quarter}</span>
+                        </div>
+                        <h3 className="text-sm font-bold text-slate-900">{item.title}</h3>
+                        <p className="text-xs text-slate-600">{item.summary || item.problem_statement}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 
