@@ -503,7 +503,6 @@ export default function PlatformHomePage() {
         <p>© 2026 aroadmap.dev · The Multi-Tenant Product Strategy & Autonomous SDLC Hub</p>
         <div className="flex items-center justify-center gap-4 text-xs font-semibold text-slate-600">
           <a href={getTenantUrl("rfqengine")} className="hover:text-blue-600">RFPEngine Roadmap</a>
-          <a href={getTenantUrl("fleet")} className="hover:text-violet-600">Agentic Fleet</a>
           <a href="/new" className="hover:text-blue-600">Onboard Tenant</a>
           <a href="https://github.com/dipeshsingh2012/aroadmap" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900">GitHub</a>
         </div>
