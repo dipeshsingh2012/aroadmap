@@ -29,3 +29,19 @@ export async function PATCH(
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ tenant: string; id: string }> }
+) {
+  const { tenant, id } = await params;
+  try {
+    const success = await RoadmapRepository.deleteInitiative(tenant, id);
+    if (!success) {
+      return NextResponse.json({ error: "Initiative not found" }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, message: "Initiative deleted successfully" });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

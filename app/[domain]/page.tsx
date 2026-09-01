@@ -150,6 +150,48 @@ export default function TenantDomainPage({
     }
   };
 
+  // Update Initiative Handler
+  const handleUpdateInitiative = async (id: string, updates: Partial<RoadmapInitiative>) => {
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/initiatives/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        setInitiatives((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
+        );
+        setSelectedInitiative((prev) => (prev && prev.id === id ? { ...prev, ...updated } : prev));
+        showToast("💾 Changes saved successfully!");
+        return updated;
+      }
+    } catch (err) {
+      console.error("Failed to update initiative:", err);
+      showToast("⚠️ Failed to save changes.");
+    }
+  };
+
+  // Delete Initiative Handler
+  const handleDeleteInitiative = async (id: string) => {
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/initiatives/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setInitiatives((prev) => prev.filter((item) => item.id !== id));
+        setSelectedInitiative(null);
+        showToast("🗑️ Initiative deleted from roadmap.");
+      }
+    } catch (err) {
+      console.error("Failed to delete initiative:", err);
+      showToast("⚠️ Failed to delete initiative.");
+    }
+  };
+
   // Reset to default seed
   const handleResetDefaults = async () => {
     if (window.confirm("Reload roadmap initiatives from database?")) {
@@ -296,6 +338,8 @@ export default function TenantDomainPage({
           isUpvoted={upvotedIds.has(selectedInitiative.id)}
           onUpvote={handleUpvote}
           onMoveStage={handleMoveStage}
+          onUpdateInitiative={handleUpdateInitiative}
+          onDeleteInitiative={handleDeleteInitiative}
         />
       )}
 
