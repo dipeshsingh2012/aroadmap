@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { OnboardingModal } from "@/components/OnboardingModal";
 import {
   Layers,
   Sparkles,
@@ -8,26 +9,30 @@ import {
   Rocket,
   Globe,
   ExternalLink,
+  Plus,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function PlatformHomePage() {
-  const [newSubdomain, setNewSubdomain] = useState("");
+  const [slugInput, setSlugInput] = useState("");
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [activeSlug, setActiveSlug] = useState("");
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleStartOnboarding = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newSubdomain.trim()) {
-      const slug = newSubdomain.toLowerCase().trim();
-      const isLocal = typeof window !== "undefined" && window.location.hostname.includes("localhost");
-      if (isLocal) {
-        window.location.href = `http://${slug}.localhost:3000`;
-      } else {
-        window.location.href = `https://${slug}.aroadmap.dev`;
-      }
-    }
+    setActiveSlug(slugInput.toLowerCase().trim().replace(/[^a-z0-9-]/g, ""));
+    setIsOnboardingOpen(true);
   };
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-slate-50">
+      {/* Interactive Onboarding Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        initialSlug={activeSlug}
+      />
+
       {/* Navigation */}
       <nav className="border-b border-slate-200/80 bg-white/80 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -43,17 +48,20 @@ export default function PlatformHomePage() {
 
           <div className="flex items-center gap-4 text-xs font-semibold">
             <a
-              href="https://rfqengine.aroadmap.dev"
+              href="/?tenant=rfqengine"
               className="text-slate-600 hover:text-blue-600 transition-colors hidden sm:inline-flex items-center gap-1"
             >
               rfqengine.aroadmap.dev <ExternalLink size={11} />
             </a>
-            <a
-              href="https://rfqengine.aroadmap.dev"
-              className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors"
+            <button
+              onClick={() => {
+                setActiveSlug("");
+                setIsOnboardingOpen(true);
+              }}
+              className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors inline-flex items-center gap-1.5"
             >
-              Launch Demo →
-            </a>
+              <Plus size={13} /> Create Board
+            </button>
           </div>
         </div>
       </nav>
@@ -77,13 +85,13 @@ export default function PlatformHomePage() {
         </p>
 
         {/* 1-Click Subdomain Form */}
-        <form onSubmit={handleCreate} className="max-w-md mx-auto pt-4 flex gap-2">
+        <form onSubmit={handleStartOnboarding} className="max-w-md mx-auto pt-4 flex gap-2">
           <div className="relative flex-1">
             <input
               type="text"
               placeholder="your-project-slug"
-              value={newSubdomain}
-              onChange={(e) => setNewSubdomain(e.target.value)}
+              value={slugInput}
+              onChange={(e) => setSlugInput(e.target.value)}
               className="w-full pl-3 pr-28 py-3 bg-white border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
             />
             <span className="absolute right-3 top-3.5 text-xs text-slate-400 font-mono pointer-events-none">
@@ -94,7 +102,7 @@ export default function PlatformHomePage() {
             type="submit"
             className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all shrink-0"
           >
-            Launch Board
+            Claim Subdomain
           </button>
         </form>
 
@@ -102,16 +110,16 @@ export default function PlatformHomePage() {
         <div className="pt-2 flex items-center justify-center gap-3 text-xs text-slate-500 flex-wrap">
           <span>Live Tenants:</span>
           <a
-            href="https://rfqengine.aroadmap.dev"
+            href="/?tenant=rfqengine"
             className="font-mono text-blue-600 hover:underline bg-slate-100 px-2.5 py-1 rounded-md"
           >
-            https://rfqengine.aroadmap.dev
+            rfqengine.aroadmap.dev
           </a>
           <a
-            href="https://fleet.aroadmap.dev"
+            href="/?tenant=fleet"
             className="font-mono text-violet-600 hover:underline bg-slate-100 px-2.5 py-1 rounded-md"
           >
-            https://fleet.aroadmap.dev
+            fleet.aroadmap.dev
           </a>
         </div>
       </section>

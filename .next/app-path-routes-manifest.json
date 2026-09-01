@@ -1,11 +1,14 @@
 {
-  "/api/tenants/[tenant]/initiatives/[id]/upvote/route": "/api/tenants/[tenant]/initiatives/[id]/upvote",
-  "/api/tenants/[tenant]/initiatives/[id]/route": "/api/tenants/[tenant]/initiatives/[id]",
   "/_not-found/page": "/_not-found",
   "/api/mcp/route": "/api/mcp",
+  "/api/tenants/[tenant]/initiatives/[id]/route": "/api/tenants/[tenant]/initiatives/[id]",
+  "/api/tenants/[tenant]/initiatives/[id]/upvote/route": "/api/tenants/[tenant]/initiatives/[id]/upvote",
+  "/api/tenants/[tenant]/initiatives/route": "/api/tenants/[tenant]/initiatives",
   "/api/tenants/[tenant]/reset/route": "/api/tenants/[tenant]/reset",
   "/api/tenants/[tenant]/route": "/api/tenants/[tenant]",
-  "/api/tenants/[tenant]/initiatives/route": "/api/tenants/[tenant]/initiatives",
+  "/api/tenants/check-subdomain/route": "/api/tenants/check-subdomain",
+  "/api/tenants/route": "/api/tenants",
   "/home/page": "/home",
+  "/new/page": "/new",
   "/[domain]/page": "/[domain]"
 }

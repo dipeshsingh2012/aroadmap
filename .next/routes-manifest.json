@@ -82,6 +82,12 @@
       "regex": "^/home(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/home(?:/)?$"
+    },
+    {
+      "page": "/new",
+      "regex": "^/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/new(?:/)?$"
     }
   ],
   "dataRoutes": [],
