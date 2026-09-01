@@ -43,7 +43,7 @@ export class RoadmapRepository {
     if (p) {
       try {
         const res = await p.query(
-          "SELECT * FROM aroadmap_tenants WHERE id = $1 OR subdomain = $1 LIMIT 1",
+          "SELECT * FROM aroadmap.tenants WHERE id = $1 OR subdomain = $1 LIMIT 1",
           [slug]
         );
         if (res.rows.length > 0) {
@@ -73,7 +73,7 @@ export class RoadmapRepository {
     const p = getPool();
     if (p) {
       try {
-        const res = await p.query("SELECT * FROM aroadmap_tenants ORDER BY name ASC");
+        const res = await p.query("SELECT * FROM aroadmap.tenants ORDER BY name ASC");
         if (res.rows.length > 0) {
           return res.rows.map((row) => ({
             id: row.id,
@@ -105,7 +105,7 @@ export class RoadmapRepository {
     if (p) {
       try {
         await p.query(
-          `INSERT INTO aroadmap_tenants (id, name, subdomain, tagline, logo_url, brand_color, github_repo, visibility)
+          `INSERT INTO aroadmap.tenants (id, name, subdomain, tagline, logo_url, brand_color, github_repo, visibility)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            ON CONFLICT (id) DO UPDATE SET
              name = EXCLUDED.name,
@@ -140,7 +140,7 @@ export class RoadmapRepository {
 
     if (p) {
       try {
-        let query = "SELECT * FROM aroadmap_initiatives WHERE tenant_id = $1";
+        let query = "SELECT * FROM aroadmap.initiatives WHERE tenant_id = $1";
         const params: any[] = [slug];
 
         if (filters?.stage && filters.stage !== "all") {
@@ -250,7 +250,7 @@ export class RoadmapRepository {
     if (p) {
       try {
         const res = await p.query(
-          "SELECT * FROM aroadmap_initiatives WHERE tenant_id = $1 AND id = $2 LIMIT 1",
+          "SELECT * FROM aroadmap.initiatives WHERE tenant_id = $1 AND id = $2 LIMIT 1",
           [slug, id]
         );
         if (res.rows.length > 0) {
@@ -335,7 +335,7 @@ export class RoadmapRepository {
     if (p) {
       try {
         await p.query(
-          `INSERT INTO aroadmap_initiatives (
+          `INSERT INTO aroadmap.initiatives (
             id, tenant_id, title, stage, theme, priority, target_persona, quarter,
             summary, problem_statement, user_story, success_metrics, acceptance_criteria,
             technical_architecture, rice_reach, rice_impact, rice_confidence, rice_effort,
@@ -425,7 +425,7 @@ export class RoadmapRepository {
     if (p) {
       try {
         await p.query(
-          `UPDATE aroadmap_initiatives SET
+          `UPDATE aroadmap.initiatives SET
             title = COALESCE($3, title),
             stage = COALESCE($4, stage),
             theme = COALESCE($5, theme),
@@ -494,7 +494,7 @@ export class RoadmapRepository {
     if (p) {
       try {
         await p.query(
-          "UPDATE aroadmap_initiatives SET upvotes = GREATEST(0, upvotes + $3), updated_at = NOW() WHERE tenant_id = $1 AND id = $2",
+          "UPDATE aroadmap.initiatives SET upvotes = GREATEST(0, upvotes + $3), updated_at = NOW() WHERE tenant_id = $1 AND id = $2",
           [slug, id, delta]
         );
       } catch (err) {

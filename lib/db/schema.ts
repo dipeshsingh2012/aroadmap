@@ -1,6 +1,9 @@
-import { pgTable, varchar, text, integer, numeric, jsonb, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { pgSchema, varchar, text, integer, numeric, jsonb, timestamp, primaryKey } from "drizzle-orm/pg-core";
 
-export const aroadmapTenantsTable = pgTable("aroadmap_tenants", {
+// Dedicated 'aroadmap' PostgreSQL Namespace (Schema) in Neon
+export const aroadmapSchema = pgSchema("aroadmap");
+
+export const tenantsTable = aroadmapSchema.table("tenants", {
   id: varchar("id", { length: 64 }).primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   subdomain: varchar("subdomain", { length: 64 }).unique().notNull(),
@@ -13,13 +16,13 @@ export const aroadmapTenantsTable = pgTable("aroadmap_tenants", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-export const aroadmapInitiativesTable = pgTable(
-  "aroadmap_initiatives",
+export const initiativesTable = aroadmapSchema.table(
+  "initiatives",
   {
     id: varchar("id", { length: 128 }).notNull(),
     tenant_id: varchar("tenant_id", { length: 64 })
       .notNull()
-      .references(() => aroadmapTenantsTable.id, { onDelete: "cascade" }),
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 255 }).notNull(),
     stage: varchar("stage", { length: 32 }).notNull().default("discovery"),
     theme: varchar("theme", { length: 64 }).default("Smart Ingestion"),
