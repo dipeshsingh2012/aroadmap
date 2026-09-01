@@ -36,14 +36,14 @@ Given the following customer opportunity / feature seed:
 
 Generate a complete, structured customer opportunity framing in valid JSON format:
 {
-  "title": "Refined, punchy opportunity title (e.g. Automated Spreadsheet Column Mapping for 300-Row Questionnaires)",
-  "persona": "Target user persona (one of: Proposal Manager, Security SME, Legal Counsel, AI Engineer, IT Administrator, Head of Sales / RevOps, Bid Team)",
+  "title": "Refined, punchy opportunity title (e.g. Model Context Protocol (MCP) Server for IDE & Agentic Integrations)",
+  "persona": "Target user persona (one of: Proposal Manager, Security SME, Legal Counsel, AI Engineer, IT Administrator, Head of Sales / RevOps, Bid Team, Product Lead)",
   "theme": "Strategic Pillar (one of: Smart Ingestion, Enterprise Governance, Core AI & Retrieval, Ecosystem Integrations, Collaboration & Workflow)",
   "priority": "Priority level (one of: P0 - Critical, P1 - High, P2 - Medium, P3 - Low)",
   "situation": "Detailed Situation & Trigger: When in the workflow does this friction occur? (start with 'When...')",
   "workaround": "Current painful workaround: How do users suffer today? (start with 'Today, ...')",
   "outcome": "Measurable Desired Outcome & KPI: (e.g. 'Reduce turnaround time from 3 days to < 2 hours with 0 errors')",
-  "hypothesis": "Proposed Solution Hypothesis: (e.g. 'A client-side WebAssembly parser with column heuristics and 1-click in-place export...')",
+  "hypothesis": "Proposed Solution Hypothesis: (e.g. 'A standard Model Context Protocol (MCP) endpoint exposing living PRDs and backlog tools...')",
   "tags": ["SearchTag1", "SearchTag2", "SearchTag3"],
   "rice": {
     "reach": 75,
@@ -123,7 +123,7 @@ Respond ONLY with the raw JSON object.
       }
     }
 
-    // 3. Intelligent Heuristic Continuous Discovery Engine
+    // 3. Precision Continuous Discovery Heuristics Engine
     const synthesized = synthesizeOpportunity(rawTitle || currentSituation, currentPersona, currentTheme);
     return NextResponse.json({ ...synthesized, generated_by: "discovery-heuristics" });
   } catch (error: any) {
@@ -148,9 +148,9 @@ function normalizeSuggestion(data: any, originalInput: string) {
     theme: data.theme || "Smart Ingestion",
     priority: data.priority || "P1 - High",
     situation: data.situation || `When users execute their workflow with ${originalInput}...`,
-    workaround: data.workaround || `Today, users rely on manual spreadsheets and disconnected documents...`,
-    outcome: data.outcome || `Reduce completion turnaround time by > 50% with zero compliance errors.`,
-    hypothesis: data.hypothesis || `An automated feature that directly addresses ${originalInput} with structured verification.`,
+    workaround: data.workaround || `Today, users rely on manual workarounds across disconnected tools...`,
+    outcome: data.outcome || `Reduce completion turnaround time by > 50% with zero errors.`,
+    hypothesis: data.hypothesis || `An automated capability that directly addresses ${originalInput} with structured verification.`,
     tags: Array.isArray(data.tags) && data.tags.length > 0 ? data.tags : ["Continuous Discovery", "Opportunity", "JTBD"],
     rice: { reach, impact, confidence, effort, score },
   };
@@ -163,8 +163,29 @@ function synthesizeOpportunity(
 ) {
   const query = input.toLowerCase();
 
-  // Pattern 1: SSO / Auth / Security / RBAC
-  if (query.includes("sso") || query.includes("saml") || query.includes("auth") || query.includes("okta") || query.includes("login") || query.includes("rbac") || query.includes("security")) {
+  // ─────────────────────────────────────────────────────────────
+  // 1. SPECIFIC: MCP (Model Context Protocol) / AI Tool Calling / Agent Protocol
+  // ─────────────────────────────────────────────────────────────
+  if (query.includes("mcp") || query.includes("model context protocol") || query.includes("tool calling") || query.includes("agent tool") || query.includes("json-rpc")) {
+    const reach = 80, impact = 5, confidence = 90, effort = 2;
+    return {
+      title: input.length > 5 ? capitalize(input) : "Model Context Protocol (MCP) Server for IDE & Agentic Integrations",
+      persona: "AI Engineer",
+      theme: "Core AI & Retrieval",
+      priority: "P0 - Critical" as PriorityLevel,
+      situation: `When autonomous AI coding agents (Claude, Cursor, Antigravity) need real-time, bi-directional context from our roadmap and living PRD backlog.`,
+      workaround: `Today, engineers and product leads manually copy-paste PRD requirements, Gherkin criteria, and issue status across browser tabs into their AI prompts.`,
+      outcome: `Provide sub-50ms JSON-RPC 2.0 tool execution for external AI agents with 100% schema validation and zero manual copy-pasting.`,
+      hypothesis: `A standard Model Context Protocol (MCP) server endpoint at /api/mcp exposing tools for initiative CRUD, stage transitions, and SDLC dispatch.`,
+      tags: ["MCP", "Model Context Protocol", "AI Agents", "Tool Calling", "JSON-RPC"],
+      rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. SPECIFIC: SSO / Auth / Security / RBAC / SAML / Okta
+  // ─────────────────────────────────────────────────────────────
+  if (query.includes("sso") || query.includes("saml") || query.includes("auth") || query.includes("okta") || query.includes("login") || query.includes("rbac") || query.includes("oauth") || query.includes("security")) {
     const reach = 85, impact = 4, confidence = 90, effort = 2;
     return {
       title: input.length > 5 ? capitalize(input) : "Enterprise SSO & Automated Role-Based Access Control",
@@ -180,8 +201,10 @@ function synthesizeOpportunity(
     };
   }
 
-  // Pattern 2: Excel / Spreadsheet / Ingestion / CSV / Tables
-  if (query.includes("excel") || query.includes("sheet") || query.includes("csv") || query.includes("table") || query.includes("import") || query.includes("column") || query.includes("format") || query.includes("ingest")) {
+  // ─────────────────────────────────────────────────────────────
+  // 3. SPECIFIC: Spreadsheets / Excel / Ingestion / CSV / Tables / Parsing
+  // ─────────────────────────────────────────────────────────────
+  if (query.includes("excel") || query.includes("sheet") || query.includes("csv") || query.includes("table") || query.includes("column") || query.includes("format") || query.includes("ingest") || query.includes("parse")) {
     const reach = 90, impact = 4, confidence = 85, effort = 2.5;
     return {
       title: input.length > 5 ? capitalize(input) : "Intelligent Spreadsheet Ingestion & Automatic Column Mapping",
@@ -197,8 +220,10 @@ function synthesizeOpportunity(
     };
   }
 
-  // Pattern 3: RAG / Search / Vectors / Embeddings / BM25
-  if (query.includes("search") || query.includes("rag") || query.includes("vector") || query.includes("retriev") || query.includes("embed") || query.includes("bm25") || query.includes("hybrid")) {
+  // ─────────────────────────────────────────────────────────────
+  // 4. SPECIFIC: RAG / Vector Search / Embeddings / BM25 / Semantic
+  // ─────────────────────────────────────────────────────────────
+  if (query.includes("search") || query.includes("rag") || query.includes("vector") || query.includes("retriev") || query.includes("embed") || query.includes("bm25") || query.includes("semantic")) {
     const reach = 80, impact = 5, confidence = 85, effort = 3;
     return {
       title: input.length > 5 ? capitalize(input) : "Hybrid Vector + Keyword Search with Contextual Re-Ranking",
@@ -214,12 +239,14 @@ function synthesizeOpportunity(
     };
   }
 
-  // Pattern 4: Agent / SDLC / Fleet / Git / Review / Code
-  if (query.includes("agent") || query.includes("fleet") || query.includes("review") || query.includes("pr") || query.includes("git") || query.includes("dev") || query.includes("qa") || query.includes("code") || query.includes("sdlc")) {
+  // ─────────────────────────────────────────────────────────────
+  // 5. SPECIFIC: Autonomous Agent Swarm / SDLC / Fleet / GitHub PR Review
+  // ─────────────────────────────────────────────────────────────
+  if (query.includes("agent") || query.includes("fleet") || query.includes("pr review") || query.includes("git") || query.includes("dev agent") || query.includes("qa agent") || query.includes("sdlc")) {
     const reach = 75, impact = 5, confidence = 80, effort = 3.5;
     return {
       title: input.length > 5 ? capitalize(input) : "Autonomous Multi-Agent SDLC Dispatch & Continuous PR Review",
-      persona: "Proposal Manager",
+      persona: "Product Lead",
       theme: "Collaboration & Workflow",
       priority: "P1 - High" as PriorityLevel,
       situation: `When a validated feature specification is signed off and ready for implementation without waiting for manual engineering sprint grooming.`,
@@ -231,8 +258,10 @@ function synthesizeOpportunity(
     };
   }
 
-  // Pattern 5: Multiplayer / Collaboration / Live / Real-time / Comments
-  if (query.includes("collab") || query.includes("multiplayer") || query.includes("comment") || query.includes("share") || query.includes("slack") || query.includes("notif") || query.includes("realtime")) {
+  // ─────────────────────────────────────────────────────────────
+  // 6. SPECIFIC: Multiplayer / Collaboration / Live / Real-Time / WebSockets
+  // ─────────────────────────────────────────────────────────────
+  if (query.includes("multiplayer") || query.includes("realtime") || query.includes("real-time") || query.includes("websocket") || query.includes("cursor") || query.includes("presence") || query.includes("live edit")) {
     const reach = 70, impact = 4, confidence = 80, effort = 3;
     return {
       title: input.length > 5 ? capitalize(input) : "Real-Time Multiplayer Collaboration & Inline Threaded Reviews",
@@ -248,11 +277,13 @@ function synthesizeOpportunity(
     };
   }
 
-  // Pattern 6: CRM / Integrations / Salesforce / HubSpot / Webhooks
-  if (query.includes("integrat") || query.includes("api") || query.includes("salesforce") || query.includes("hubspot") || query.includes("crm") || query.includes("webhook")) {
+  // ─────────────────────────────────────────────────────────────
+  // 7. SPECIFIC: CRM / Salesforce / HubSpot / Deal Velocity
+  // ─────────────────────────────────────────────────────────────
+  if (query.includes("salesforce") || query.includes("hubspot") || query.includes("crm") || query.includes("deal") || query.includes("pipeline") || query.includes("revops")) {
     const reach = 65, impact = 4, confidence = 85, effort = 2.5;
     return {
-      title: input.length > 5 ? capitalize(input) : "Two-Way CRM & Ecosystem Integrations (Salesforce, HubSpot)",
+      title: input.length > 5 ? capitalize(input) : "Two-Way CRM Integration & Opportunity Sync (Salesforce, HubSpot)",
       persona: "Head of Sales / RevOps",
       theme: "Ecosystem Integrations",
       priority: "P1 - High" as PriorityLevel,
@@ -265,7 +296,28 @@ function synthesizeOpportunity(
     };
   }
 
-  // General fallback
+  // ─────────────────────────────────────────────────────────────
+  // 8. GENERAL API / Webhook / Ecosystem Connectors
+  // ─────────────────────────────────────────────────────────────
+  if (query.includes("webhook") || query.includes("api") || query.includes("rest") || query.includes("graphql") || query.includes("connector") || query.includes("integrat") || query.includes("plugin")) {
+    const reach = 75, impact = 4, confidence = 85, effort = 2.5;
+    return {
+      title: input.length > 5 ? capitalize(input) : "Extensible Webhook & REST API Integration Gateway",
+      persona: "AI Engineer",
+      theme: "Ecosystem Integrations",
+      priority: "P1 - High" as PriorityLevel,
+      situation: `When third-party enterprise systems and developer tools need to programmatic trigger actions and stream event updates.`,
+      workaround: `Today, teams build ad-hoc polling scripts or perform manual batch exports without real-time event synchronization.`,
+      outcome: `Provide reliable sub-100ms webhook delivery with automated retries and granular API key permissions.`,
+      hypothesis: `A standardized API and Webhook gateway supporting signed payload signatures and event filtering.`,
+      tags: ["API", "Webhooks", "Integrations", "Developer Platform"],
+      rice: { reach, impact, confidence, effort, score: computeRICEScore({ reach, impact, confidence, effort }) },
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 9. GENERAL / DYNAMIC FALLBACK
+  // ─────────────────────────────────────────────────────────────
   const cleanInput = capitalize(input);
   const reach = 60, impact = 3, confidence = 75, effort = 3;
   return {

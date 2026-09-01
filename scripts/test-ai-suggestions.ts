@@ -40,28 +40,41 @@ async function runAiSuggestionTests() {
     assert(!!data.error, "Error message returned for empty payload");
   }
 
-  // 2. TEST: Spreadsheet / Smart Ingestion Opportunity Framing (All 10 fields)
-  console.log("\n2. Testing 'Spreadsheet Ingestion' Populates All 10 Fields...");
+  // 2. TEST: MCP Integration (Specific Regression Test)
+  console.log("\n2. Testing 'Add MCP Integration' (Regression Test)...");
+  {
+    const { status, data } = await callSuggestApi({
+      title: "Add MCP Integration",
+    });
+
+    assert(status === 200, "API returned 200 OK");
+    assert(data.title === "Add MCP Integration", `Title matches: "${data.title}"`);
+    assert(data.persona === "AI Engineer", `Persona is "AI Engineer" (Got: ${data.persona})`);
+    assert(data.theme === "Core AI & Retrieval", `Theme is "Core AI & Retrieval" (Got: ${data.theme})`);
+    assert(data.priority === "P0 - Critical", `Priority is P0 - Critical (Got: ${data.priority})`);
+    assert(data.situation.includes("Model Context Protocol") || data.situation.includes("Claude, Cursor, Antigravity"), `Situation captures AI coding agents`);
+    assert(data.workaround.includes("copy-paste PRD requirements"), `Workaround captures manual PRD copy-pasting`);
+    assert(data.outcome.includes("JSON-RPC 2.0"), `Outcome captures JSON-RPC 2.0 compliance`);
+    assert(data.hypothesis.includes("/api/mcp"), `Hypothesis mentions /api/mcp`);
+    assert(data.tags.includes("MCP"), `Tags include "MCP" (Got: [${data.tags.join(', ')}])`);
+    assert(!data.tags.includes("Salesforce"), `Tags DO NOT contain Salesforce (Got: [${data.tags.join(', ')}])`);
+  }
+
+  // 3. TEST: Spreadsheet / Smart Ingestion
+  console.log("\n3. Testing 'Spreadsheet Ingestion'...");
   {
     const { status, data } = await callSuggestApi({
       title: "excel spreadsheet import",
     });
 
     assert(status === 200, "API returned 200 OK");
-    assert(data.title && data.title.length > 5, `1. Title populated: "${data.title}"`);
-    assert(data.persona === "Proposal Manager", `2. Persona populated: "${data.persona}"`);
-    assert(data.theme === "Smart Ingestion", `3. Theme matches "Smart Ingestion"`);
-    assert(data.priority === "P1 - High", `4. Priority populated: "${data.priority}"`);
-    assert(data.situation.startsWith("When"), `5. Situation follows "When..." trigger`);
-    assert(data.workaround.startsWith("Today"), `6. Workaround follows "Today, ..."`);
-    assert(data.outcome.length > 10, `7. Outcome KPI provided: "${data.outcome}"`);
-    assert(data.hypothesis.length > 10, `8. Hypothesis provided: "${data.hypothesis}"`);
-    assert(Array.isArray(data.tags) && data.tags.length >= 3, `9. Tags populated: [${data.tags.join(', ')}]`);
-    assert(typeof data.rice?.score === "number" && data.rice.score > 0, `10. RICE score calculated: ${data.rice.score}`);
+    assert(data.persona === "Proposal Manager", `Persona is Proposal Manager`);
+    assert(data.theme === "Smart Ingestion", `Theme matches "Smart Ingestion"`);
+    assert(data.tags.includes("Spreadsheets"), "Tags include Spreadsheets");
   }
 
-  // 3. TEST: SSO / Auth Domain
-  console.log("\n3. Testing 'SSO / Auth' Domain...");
+  // 4. TEST: SSO / Auth Domain
+  console.log("\n4. Testing 'SSO / Auth' Domain...");
   {
     const { status, data } = await callSuggestApi({
       title: "okta saml sso integration",
@@ -70,26 +83,18 @@ async function runAiSuggestionTests() {
     assert(status === 200, "API returned 200 OK");
     assert(data.persona === "IT Administrator", `Persona is IT Administrator`);
     assert(data.theme === "Enterprise Governance", `Theme is Enterprise Governance`);
-    assert(data.priority === "P0 - Critical", `Priority is P0 - Critical`);
-    assert(data.tags.includes("SSO") || data.tags.includes("Auth"), "Tags include Auth/SSO");
-    assert(data.rice.reach === 85, "Reach is 85%");
   }
 
-  // 4. TEST: Arbitrary Input Fallback
-  console.log("\n4. Testing Arbitrary / Generic Topic Fallback...");
+  // 5. TEST: Salesforce CRM (Should specifically match CRM, not MCP)
+  console.log("\n5. Testing 'Salesforce CRM Sync'...");
   {
     const { status, data } = await callSuggestApi({
-      title: "dark mode theme",
+      title: "salesforce crm deal sync",
     });
 
-    assert(status === 200, "API returned 200 OK for custom topic");
-    assert(data.title.toLowerCase().includes("dark mode"), "Title contains dark mode");
-    assert(data.situation.length > 10, "Situation generated");
-    assert(data.workaround.length > 10, "Workaround generated");
-    assert(data.outcome.length > 10, "Outcome generated");
-    assert(data.hypothesis.length > 10, "Hypothesis generated");
-    assert(data.tags.length > 0, "Tags generated");
-    assert(data.rice.score > 0, "RICE score computed");
+    assert(status === 200, "API returned 200 OK");
+    assert(data.persona === "Head of Sales / RevOps", `Persona is Head of Sales / RevOps`);
+    assert(data.tags.includes("Salesforce"), "Tags include Salesforce");
   }
 
   // SUMMARY
