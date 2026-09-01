@@ -74,7 +74,13 @@ Respond ONLY with a valid JSON object matching this schema:
 
       console.log(`[AI Suggestion] 🔑 Found active key via '${keySource}' (length: ${geminiKey.length}). Attempting Gemini invocation...`);
 
-      const modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+      const modelsToTry = [
+        "gemini-3.6-flash",
+        "gemini-2.5-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-2.0-flash-exp",
+      ];
       
       for (const modelName of modelsToTry) {
         const llmStart = Date.now();
