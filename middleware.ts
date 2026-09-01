@@ -36,8 +36,12 @@ export function middleware(req: NextRequest) {
     !queryTenant;
 
   if (isRootPlatform) {
-    // Rewrite internally to /home route handler without changing browser URL
-    return NextResponse.rewrite(new URL(`/home${url.pathname}`, req.url));
+    // If root path '/', rewrite to /home marketing page
+    if (url.pathname === "/") {
+      return NextResponse.rewrite(new URL("/home", req.url));
+    }
+    // If '/new' or other platform pages, passthrough directly
+    return NextResponse.next();
   }
 
   // Extract tenant subdomain or custom domain slug
@@ -62,5 +66,5 @@ export function middleware(req: NextRequest) {
   }
 
   // Fallback to home
-  return NextResponse.rewrite(new URL(`/home${url.pathname}`, req.url));
+  return NextResponse.rewrite(new URL("/home", req.url));
 }
