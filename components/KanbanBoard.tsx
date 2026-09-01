@@ -12,7 +12,7 @@ interface KanbanBoardProps {
   onMoveStage: (id: string, stage: RoadmapStage) => void;
 }
 
-const STAGES: RoadmapStage[] = ["discovery", "spec", "development", "beta", "shipped"];
+const STAGES: RoadmapStage[] = ["discovery", "spec", "approved", "development", "shipped"];
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   initiatives,
@@ -68,7 +68,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             onDragOver={(e) => handleDragOver(e, stage)}
             onDragLeave={(e) => handleDragLeave(e, stage)}
             onDrop={(e) => handleDrop(e, stage)}
-            className={`flex flex-col rounded-2xl bg-slate-100/70 border p-3 min-w-[260px] transition-all ${
+            className={`flex flex-col rounded-2xl bg-slate-100/70 border p-3 min-w-[250px] transition-all ${
               isDragTarget
                 ? "border-blue-500 bg-blue-50/50 shadow-inner ring-2 ring-blue-400/20"
                 : "border-slate-200/80"

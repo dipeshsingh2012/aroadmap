@@ -1,4 +1,4 @@
-export type RoadmapStage = "discovery" | "spec" | "development" | "beta" | "shipped";
+export type RoadmapStage = "discovery" | "spec" | "approved" | "development" | "shipped";
 
 export type StrategicTheme =
   | "Core AI & Retrieval"
@@ -7,7 +7,7 @@ export type StrategicTheme =
   | "Ecosystem Integrations"
   | "Collaboration & Workflow";
 
-export type PriorityLevel = "P0 - Critical" | "P1 - High" | "P2 - Medium";
+export type PriorityLevel = "P0 - Critical" | "P1 - High" | "P2 - Medium" | "P3 - Low";
 
 export interface RICEScore {
   reach: number;       // 1 - 100%
@@ -65,23 +65,23 @@ export const STAGE_CONFIG: Record<
   spec: {
     label: "In Spec & Design",
     icon: "📐",
-    description: "PRD documentation, UX wireframing & technical architecture",
+    description: "PRD documentation, Gherkin criteria & technical architecture",
     color: "#8b5cf6",
     badgeClass: "stage-spec",
+  },
+  approved: {
+    label: "Approved & Ready",
+    icon: "✅",
+    description: "Signed off by Lead, queued for autonomous agent dispatch",
+    color: "#0284c7",
+    badgeClass: "stage-approved",
   },
   development: {
     label: "In Development",
     icon: "🏗️",
-    description: "Active sprint execution and backend/frontend engineering",
+    description: "Active sprint execution, coding branch & test implementation",
     color: "#3b82f6",
     badgeClass: "stage-development",
-  },
-  beta: {
-    label: "Beta & Testing",
-    icon: "🧪",
-    description: "Adversarial QA testing, security audits & customer preview",
-    color: "#f59e0b",
-    badgeClass: "stage-beta",
   },
   shipped: {
     label: "Shipped & Live",
