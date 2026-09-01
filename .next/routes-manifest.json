@@ -62,26 +62,26 @@
       "namedRegex": "^/api/tenants/(?<nxtPtenant>[^/]+?)/reset(?:/)?$"
     },
     {
-      "page": "/[tenant]",
+      "page": "/[domain]",
       "regex": "^/([^/]+?)(?:/)?$",
       "routeKeys": {
-        "nxtPtenant": "nxtPtenant"
+        "nxtPdomain": "nxtPdomain"
       },
-      "namedRegex": "^/(?<nxtPtenant>[^/]+?)(?:/)?$"
+      "namedRegex": "^/(?<nxtPdomain>[^/]+?)(?:/)?$"
     }
   ],
   "staticRoutes": [
-    {
-      "page": "/",
-      "regex": "^/(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/(?:/)?$"
-    },
     {
       "page": "/_not-found",
       "regex": "^/_not\\-found(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/home",
+      "regex": "^/home(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/home(?:/)?$"
     }
   ],
   "dataRoutes": [],

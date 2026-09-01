@@ -47,19 +47,19 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 }
 
 
-// Validate ../../app/(marketing)/page.tsx
+// Validate ../../app/[domain]/page.tsx
 {
-  type __IsExpected<Specific extends AppPageConfig<"/">> = Specific
-  const handler = {} as typeof import("../../app/(marketing)/page.js")
+  type __IsExpected<Specific extends AppPageConfig<"/[domain]">> = Specific
+  const handler = {} as typeof import("../../app/[domain]/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
 }
 
-// Validate ../../app/(tenant)/[tenant]/page.tsx
+// Validate ../../app/home/page.tsx
 {
-  type __IsExpected<Specific extends AppPageConfig<"/[tenant]">> = Specific
-  const handler = {} as typeof import("../../app/(tenant)/[tenant]/page.js")
+  type __IsExpected<Specific extends AppPageConfig<"/home">> = Specific
+  const handler = {} as typeof import("../../app/home/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
@@ -123,10 +123,10 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 
 
 
-// Validate ../../app/(tenant)/[tenant]/layout.tsx
+// Validate ../../app/[domain]/layout.tsx
 {
-  type __IsExpected<Specific extends LayoutConfig<"/[tenant]">> = Specific
-  const handler = {} as typeof import("../../app/(tenant)/[tenant]/layout.js")
+  type __IsExpected<Specific extends LayoutConfig<"/[domain]">> = Specific
+  const handler = {} as typeof import("../../app/[domain]/layout.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

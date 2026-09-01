@@ -1,11 +1,11 @@
 {
+  "/api/tenants/[tenant]/initiatives/[id]/upvote/route": "app/api/tenants/[tenant]/initiatives/[id]/upvote/route.js",
+  "/api/tenants/[tenant]/initiatives/[id]/route": "app/api/tenants/[tenant]/initiatives/[id]/route.js",
   "/_not-found/page": "app/_not-found/page.js",
   "/api/mcp/route": "app/api/mcp/route.js",
-  "/api/tenants/[tenant]/initiatives/[id]/route": "app/api/tenants/[tenant]/initiatives/[id]/route.js",
-  "/api/tenants/[tenant]/initiatives/route": "app/api/tenants/[tenant]/initiatives/route.js",
   "/api/tenants/[tenant]/reset/route": "app/api/tenants/[tenant]/reset/route.js",
   "/api/tenants/[tenant]/route": "app/api/tenants/[tenant]/route.js",
-  "/api/tenants/[tenant]/initiatives/[id]/upvote/route": "app/api/tenants/[tenant]/initiatives/[id]/upvote/route.js",
-  "/(marketing)/page": "app/(marketing)/page.js",
-  "/(tenant)/[tenant]/page": "app/(tenant)/[tenant]/page.js"
+  "/api/tenants/[tenant]/initiatives/route": "app/api/tenants/[tenant]/initiatives/route.js",
+  "/home/page": "app/home/page.js",
+  "/[domain]/page": "app/[domain]/page.js"
 }
