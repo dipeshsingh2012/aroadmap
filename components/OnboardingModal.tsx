@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getTenantUrl } from "@/lib/utils";
 import {
   X,
   Sparkles,
@@ -158,6 +159,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     }
   };
 
+  const targetSubdomainUrl = provisionedData?.tenant?.subdomain
+    ? getTenantUrl(provisionedData.tenant.subdomain)
+    : "";
+
   const copyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
     setCopied(true);
@@ -233,7 +238,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   {isChecking && <span className="text-slate-400 animate-pulse">Checking availability...</span>}
                   {!isChecking && isAvailable === true && (
                     <span className="text-emerald-600 font-semibold inline-flex items-center gap-1">
-                      <CheckCircle2 size={13} /> https://{subdomain}.aroadmap.dev is available!
+                      <CheckCircle2 size={13} /> {getTenantUrl(subdomain)} is available!
                     </span>
                   )}
                   {!isChecking && isAvailable === false && (
@@ -339,7 +344,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </div>
                   <div>
                     <div className="font-bold text-sm text-slate-900">{name || "Your Project Name"}</div>
-                    <div className="text-[11px] text-slate-500 font-mono">https://{subdomain || "your-brand"}.aroadmap.dev</div>
+                    <div className="text-[11px] text-slate-500 font-mono">{getTenantUrl(subdomain || "your-brand")}</div>
                   </div>
                 </div>
               </div>
@@ -430,11 +435,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               {/* Subdomain Card */}
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2 max-w-md mx-auto">
                 <div className="text-xs font-mono font-bold text-blue-600 truncate">
-                  {provisionedData.subdomain_url}
+                  {targetSubdomainUrl}
                 </div>
                 <button
                   type="button"
-                  onClick={() => copyUrl(provisionedData.subdomain_url)}
+                  onClick={() => copyUrl(targetSubdomainUrl)}
                   className="px-2.5 py-1 rounded bg-white hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1 shrink-0 shadow-2xs"
                 >
                   {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
@@ -445,7 +450,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               {/* Action Buttons */}
               <div className="pt-2 flex items-center justify-center gap-3">
                 <a
-                  href={provisionedData.fallback_url}
+                  href={targetSubdomainUrl}
                   className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all inline-flex items-center gap-1.5"
                 >
                   Launch Board Now <ArrowRight size={13} />

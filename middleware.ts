@@ -17,10 +17,6 @@ export const config = {
 export function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const hostname = req.headers.get("host") || "";
-  const searchParams = url.searchParams;
-
-  // Local development / testing query param override: ?tenant=rfqengine
-  const queryTenant = searchParams.get("tenant");
 
   // Extract host without port
   const host = hostname.replace(/:\d+$/, "").toLowerCase();
@@ -28,12 +24,11 @@ export function middleware(req: NextRequest) {
 
   // Root platform marketing domain: aroadmap.dev, www.aroadmap.dev, or bare localhost
   const isRootPlatform =
-    (host === rootDomain ||
-      host === `www.${rootDomain}` ||
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host === "aroadmap.localhost") &&
-    !queryTenant;
+    host === rootDomain ||
+    host === `www.${rootDomain}` ||
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "aroadmap.localhost";
 
   if (isRootPlatform) {
     // If root path '/', rewrite to /home marketing page
@@ -44,11 +39,9 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Extract tenant subdomain or custom domain slug
+  // Extract pure tenant subdomain
   let tenantSlug = "";
-  if (queryTenant) {
-    tenantSlug = queryTenant.toLowerCase().trim();
-  } else if (host.endsWith(`.${rootDomain}`)) {
+  if (host.endsWith(`.${rootDomain}`)) {
     tenantSlug = host.replace(`.${rootDomain}`, "").toLowerCase().trim();
   } else if (host.endsWith(".localhost")) {
     tenantSlug = host.replace(".localhost", "").toLowerCase().trim();
@@ -58,8 +51,8 @@ export function middleware(req: NextRequest) {
   }
 
   if (tenantSlug && tenantSlug !== "www" && tenantSlug !== "app") {
-    // Rewrite internally to /[domain]/[pathname]
-    // e.g. https://rfqengine.aroadmap.dev/ -> app/[domain]/page.tsx (where params.domain = 'rfqengine')
+    // Rewrite internally to dynamic [domain] path
+    // e.g. https://rfqengine.aroadmap.dev/ -> app/[domain]/page.tsx (domain = 'rfqengine')
     // e.g. https://rfqengine.aroadmap.dev/changelog -> app/[domain]/changelog/page.tsx
     const targetPath = `/${tenantSlug}${url.pathname === "/" ? "" : url.pathname}`;
     return NextResponse.rewrite(new URL(targetPath, req.url));

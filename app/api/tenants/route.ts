@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if tenant already exists
+    // Check if tenant already exists in PostgreSQL
     const existing = await RoadmapRepository.getTenant(slug);
     if (existing) {
       return NextResponse.json(
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create tenant
+    // Create tenant in Neon PostgreSQL
     const newTenant: Tenant = {
       id: slug,
       name: name.trim(),
@@ -78,12 +78,14 @@ export async function POST(req: NextRequest) {
 
     await RoadmapRepository.createTenant(newTenant);
 
-    // Seed chosen template initiatives
+    // Seed chosen template initiatives if selected
     const templateKey = template || "ai-saas";
     const templateItems = TEMPLATE_INITIATIVES[templateKey] || TEMPLATE_INITIATIVES["ai-saas"];
 
-    for (const item of templateItems) {
-      await RoadmapRepository.createInitiative(slug, item);
+    if (templateItems && templateItems.length > 0) {
+      for (const item of templateItems) {
+        await RoadmapRepository.createInitiative(slug, item);
+      }
     }
 
     const rootDomain = process.env.ROOT_DOMAIN || "aroadmap.dev";
@@ -93,8 +95,6 @@ export async function POST(req: NextRequest) {
         message: "Tenant provisioned successfully",
         tenant: newTenant,
         subdomain_url: `https://${slug}.${rootDomain}/`,
-        local_url: `http://${slug}.localhost:3000/`,
-        fallback_url: `/?tenant=${slug}`,
       },
       { status: 201 }
     );

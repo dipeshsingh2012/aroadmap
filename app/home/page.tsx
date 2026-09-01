@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { OnboardingModal } from "@/components/OnboardingModal";
-import { Tenant, RoadmapInitiative, computeRICEScore } from "@/lib/types";
+import { Tenant, computeRICEScore } from "@/lib/types";
+import { getTenantUrl } from "@/lib/utils";
 import {
   Layers,
   Sparkles,
@@ -158,7 +159,7 @@ export default function PlatformHomePage() {
 
           <div className="flex items-center gap-4 text-xs font-semibold">
             <a
-              href="/?tenant=rfqengine"
+              href={getTenantUrl("rfqengine")}
               className="text-slate-600 hover:text-blue-600 transition-colors hidden sm:inline-flex items-center gap-1"
             >
               Demo: RFPEngine <ExternalLink size={11} />
@@ -223,7 +224,7 @@ export default function PlatformHomePage() {
               {isChecking && <span className="text-slate-400 animate-pulse">Checking availability...</span>}
               {!isChecking && isAvailable === true && (
                 <span className="text-emerald-600 font-semibold inline-flex items-center gap-1">
-                  <CheckCircle2 size={13} /> https://{slugInput.toLowerCase()}.aroadmap.dev is available!
+                  <CheckCircle2 size={13} /> {getTenantUrl(slugInput.toLowerCase().trim())} is available!
                 </span>
               )}
               {!isChecking && isAvailable === false && (
@@ -279,7 +280,7 @@ export default function PlatformHomePage() {
               {tenants.map((t) => (
                 <a
                   key={t.id}
-                  href={`/?tenant=${t.subdomain}`}
+                  href={getTenantUrl(t.subdomain)}
                   className="group p-5 rounded-2xl border border-slate-200 hover:border-blue-400 bg-white hover:shadow-md transition-all flex flex-col justify-between space-y-4"
                 >
                   <div className="space-y-2.5">
@@ -501,8 +502,8 @@ export default function PlatformHomePage() {
       <footer className="py-8 bg-slate-50 border-t border-slate-200/80 text-center text-xs text-slate-500 space-y-2">
         <p>© 2026 aroadmap.dev · The Multi-Tenant Product Strategy & Autonomous SDLC Hub</p>
         <div className="flex items-center justify-center gap-4 text-xs font-semibold text-slate-600">
-          <a href="/?tenant=rfqengine" className="hover:text-blue-600">RFPEngine Roadmap</a>
-          <a href="/?tenant=fleet" className="hover:text-violet-600">Agentic Fleet</a>
+          <a href={getTenantUrl("rfqengine")} className="hover:text-blue-600">RFPEngine Roadmap</a>
+          <a href={getTenantUrl("fleet")} className="hover:text-violet-600">Agentic Fleet</a>
           <a href="/new" className="hover:text-blue-600">Onboard Tenant</a>
           <a href="https://github.com/dipeshsingh2012/aroadmap" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900">GitHub</a>
         </div>
