@@ -112,7 +112,7 @@ flowchart TD
 | :--- | :--- | :--- |
 | **`create_initiative`** | **Pillar 1: Creation** | Creates a living PRD with User Story, Gherkin Criteria, and RICE scoring. |
 | **`update_initiative`** | **Pillar 2: CRUD** | Updates any field on an initiative (RICE, specs, criteria, priority, quarter). |
-| **`transition_initiative_stage`** | **Pillar 2: Workflow** | Moves card through `discovery` $\rightarrow$ `spec` $\rightarrow$ `approved` $\rightarrow$ `development` $\rightarrow$ `shipped`. |
+| **`transition_initiative_stage`** | **Pillar 2: Workflow** | Moves card through the SDLC stages; approving a LectureScribe initiative also dispatches it to Agentic Fleet. |
 | **`get_initiative`** | **Pillar 2: Inspect** | Retrieves full PRD specification for a single initiative. |
 | **`list_initiatives`** | **Pillar 2: Query** | Filters backlog by stage, theme, priority, or full-text search. |
 | **`delete_initiative`** | **Pillar 2: Teardown** | Permanently deletes an initiative from the backlog. |
@@ -123,6 +123,8 @@ flowchart TD
 ---
 
 ### Client MCP Configuration
+
+For the `lecturescribe` tenant, calling `transition_initiative_stage` with `stage: "approved"` starts Agentic Fleet and returns its `request_id`. This privileged approval/dispatch call requires the `Authorization: Bearer ...` value configured from `AROADMAP_FLEET_TRIGGER_TOKEN`; do not put that credential in browser code or share it in tenant metadata. Other tenants' stage transitions do not dispatch to LectureScribe. The explicit `trigger_lecturescribe_fleet` tool remains available for authorized retries.
 
 #### Google Antigravity SDK (`~/.gemini/config/mcp_config.json`):
 ```json

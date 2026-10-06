@@ -14,10 +14,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const toolName = body?.method === "tools/call" ? body?.params?.name : undefined;
-    if (toolName === "trigger_lecturescribe_fleet") {
+    const toolArguments = body?.params?.arguments;
+    const approvingLectureScribeInitiative =
+      toolName === "transition_initiative_stage" &&
+      String(toolArguments?.tenant_id || "").toLowerCase().trim() === "lecturescribe" &&
+      toolArguments?.stage === "approved";
+    if (toolName === "trigger_lecturescribe_fleet" || approvingLectureScribeInitiative) {
       if (!matchesBearerToken(req.headers.get("authorization"), process.env.AROADMAP_FLEET_TRIGGER_TOKEN)) {
         return NextResponse.json(
-          { jsonrpc: "2.0", id: body?.id ?? null, error: { code: -32001, message: "Unauthorized fleet trigger." } },
+          { jsonrpc: "2.0", id: body?.id ?? null, error: { code: -32001, message: "Unauthorized LectureScribe fleet approval or trigger." } },
           { status: 401 }
         );
       }

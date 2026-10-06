@@ -106,7 +106,7 @@ export class MCPServerHandler {
 
       {
         name: "transition_initiative_stage",
-        description: "Transition an initiative through the SDLC workflow stages (discovery -> spec -> approved -> development -> shipped).",
+        description: "Transition an initiative through the SDLC workflow stages. Approving a LectureScribe initiative also dispatches it to Agentic Fleet.",
         inputSchema: {
           type: "object",
           properties: {
@@ -119,6 +119,13 @@ export class MCPServerHandler {
             },
             quarter: { type: "string", description: "Optional updated target quarter / release tag." },
             feedback: { type: "string", description: "Optional sign-off feedback or engineering notes." },
+            event_type: {
+              type: "string",
+              enum: ["mcp_start_dev", "mcp_initiative", "fleet_trigger"],
+              default: "mcp_start_dev",
+              description: "LectureScribe Agentic Fleet event used when approving a LectureScribe initiative.",
+            },
+            request_id: { type: "string", description: "Optional idempotency key for the dispatch." },
           },
           required: ["item_id", "stage"],
         },
@@ -241,6 +248,7 @@ export class MCPServerHandler {
               enum: ["mcp_start_dev", "mcp_initiative", "fleet_trigger"],
               default: "mcp_start_dev",
             },
+            request_id: { type: "string", description: "Optional caller-generated idempotency key." },
           },
           required: ["tenant_id", "initiative_id"],
           additionalProperties: false,
@@ -381,6 +389,34 @@ export class MCPServerHandler {
               quarter: updated.quarter,
               message: `Transitioned '${updated.title}' to stage '${targetStage.toUpperCase()}'`,
             };
+            if (tenantId === "lecturescribe" && targetStage === "approved") {
+              const dispatchResponse = await this.handleRequest({
+                jsonrpc: "2.0",
+                id,
+                method: "tools/call",
+                params: {
+                  name: "trigger_lecturescribe_fleet",
+                  arguments: {
+                    tenant_id: tenantId,
+                    initiative_id: args.item_id,
+                    event_type: args.event_type || "mcp_start_dev",
+                    request_id: args.request_id,
+                  },
+                },
+              });
+              const dispatch = dispatchResponse?.result;
+              if (!dispatch || dispatch.isError || dispatch.error) {
+                throw new Error(dispatch?.error || "LectureScribe fleet dispatch failed after approval.");
+              }
+              rawResult = {
+                ...rawResult,
+                status: dispatch.status,
+                fleet_status: dispatch.fleet_status,
+                request_id: dispatch.request_id,
+                github_repository: dispatch.github_repository,
+                message: `Approved '${updated.title}' and dispatched it to LectureScribe Agentic Fleet.`,
+              };
+            }
           }
         }
 
@@ -550,7 +586,7 @@ export class MCPServerHandler {
           if (!endpoint || !token) {
             throw new Error("LectureScribe MCP integration is not configured.");
           }
-          const requestId = randomUUID();
+          const requestId = args.request_id || randomUUID();
           const task = [
             initiative.summary && `Summary: ${initiative.summary}`,
             initiative.problem_statement && `Problem: ${initiative.problem_statement}`,
