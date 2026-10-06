@@ -99,7 +99,7 @@ export default function TenantDomainPage({
   const handleMoveStage = async (id: string, stage: RoadmapStage, operatorAuthorized = false) => {
     const targetItem = initiatives.find((i) => i.id === id);
     if (!targetItem || targetItem.stage === stage) return;
-    if (tenantId === "lecturescribe" && stage === "development" && !operatorAuthenticated && !operatorAuthorized) {
+    if (tenantId === "lecturescribe" && (stage === "development" || stage === "ready_for_dev") && !operatorAuthenticated && !operatorAuthorized) {
       setPendingDevelopmentMove({ id, stage });
       setOperatorSignInError("");
       setShowOperatorSignIn(true);
@@ -361,6 +361,7 @@ export default function TenantDomainPage({
               <KanbanBoard
                 initiatives={filteredInitiatives}
                 upvotedIds={upvotedIds}
+                stages={tenant?.stages}
                 onUpvote={handleUpvote}
                 onSelectInitiative={(item) => setSelectedInitiative(item)}
                 onMoveStage={handleMoveStage}

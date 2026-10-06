@@ -19,8 +19,12 @@ export class MCPServerHandler {
             summary: { type: "string", description: "Executive 1-2 sentence summary of what is being built." },
             stage: {
               type: "string",
-              enum: ["discovery", "spec", "approved", "development", "shipped"],
-              default: "discovery",
+              enum: [
+                "backlog", "ready_for_dev", "design_approved", "in_development",
+                "security_review", "qa_review", "code_review", "shipped",
+                "discovery", "spec", "approved", "development"
+              ],
+              default: "backlog",
               description: "Initial workflow stage.",
             },
             theme: { type: "string", default: "Smart Ingestion", description: "Strategic theme / category." },
@@ -30,7 +34,7 @@ export class MCPServerHandler {
               default: "P1 - High",
             },
             target_persona: { type: "string", default: "Proposal Manager", description: "Primary user role." },
-            quarter: { type: "string", default: "In Discovery", description: "Target delivery window (e.g. 'Q3 2026', 'In Discovery')." },
+            quarter: { type: "string", default: "In Backlog", description: "Target delivery window (e.g. 'Q3 2026', 'In Backlog')." },
             problem_statement: { type: "string", description: "The underlying customer friction or market problem." },
             user_story: { type: "string", description: "Agile user story: 'As a [role], I want [feature] so that [benefit]'." },
             success_metrics: {
@@ -76,7 +80,14 @@ export class MCPServerHandler {
               properties: {
                 title: { type: "string" },
                 summary: { type: "string" },
-                stage: { type: "string", enum: ["discovery", "spec", "approved", "development", "shipped"] },
+                stage: {
+                  type: "string",
+                  enum: [
+                    "backlog", "ready_for_dev", "design_approved", "in_development",
+                    "security_review", "qa_review", "code_review", "shipped",
+                    "discovery", "spec", "approved", "development"
+                  ]
+                },
                 theme: { type: "string" },
                 priority: { type: "string", enum: ["P0 - Critical", "P1 - High", "P2 - Medium", "P3 - Low"] },
                 target_persona: { type: "string" },
@@ -114,7 +125,11 @@ export class MCPServerHandler {
             item_id: { type: "string", description: "Target initiative ID." },
             stage: {
               type: "string",
-              enum: ["discovery", "spec", "approved", "development", "shipped"],
+              enum: [
+                "backlog", "ready_for_dev", "design_approved", "in_development",
+                "security_review", "qa_review", "code_review", "shipped",
+                "discovery", "spec", "approved", "development"
+              ],
               description: "Target workflow stage.",
             },
             quarter: { type: "string", description: "Optional updated target quarter / release tag." },
@@ -151,7 +166,15 @@ export class MCPServerHandler {
           type: "object",
           properties: {
             tenant_id: { type: "string", default: "rfpengine", description: "Tenant workspace ID." },
-            stage: { type: "string", enum: ["all", "discovery", "spec", "approved", "development", "shipped"], default: "all" },
+            stage: {
+              type: "string",
+              enum: [
+                "all", "backlog", "ready_for_dev", "design_approved", "in_development",
+                "security_review", "qa_review", "code_review", "shipped",
+                "discovery", "spec", "approved", "development"
+              ],
+              default: "all"
+            },
             theme: { type: "string", default: "all" },
             priority: { type: "string" },
             search: { type: "string", description: "Full-text search keyword." },
@@ -257,26 +280,32 @@ export class MCPServerHandler {
 
       {
         name: "report_fleet_status",
-        description: "Record an authenticated Agentic Fleet status update against the matching roadmap initiative.",
+        description: "Record an authenticated Agentic Fleet milestone event or status update against the matching roadmap initiative.",
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string" },
-            initiative_id: { type: "string" },
-            request_id: { type: "string" },
+            tenant_id: { type: "string", description: "Tenant identifier (e.g. 'rfpengine', 'lecturescribe')." },
+            initiative_id: { type: "string", description: "Target initiative ID." },
+            request_id: { type: "string", description: "Unique idempotency key for this fleet run." },
             status: {
               type: "string",
-              enum: ["accepted", "queued", "running", "succeeded", "failed", "cancelled"],
+              enum: ["accepted", "queued", "running", "succeeded", "failed", "cancelled", "in_progress", "completed", "blocked"],
+              description: "Run status.",
             },
-            github_repository: { type: "string" },
-            github_run_id: { type: "string" },
+            milestone: {
+              type: "string",
+              description: "Fleet milestone event (e.g. ticket_drafted, design_approved, dev_started, pr_opened, security_started, qa_started, review_started, ready_to_merge, merged, blocked).",
+            },
+            github_repository: { type: "string", description: "Target GitHub repository." },
+            github_run_id: { type: "string", description: "GitHub Actions run ID." },
             github_run_attempt: { type: "string" },
-            run_url: { type: "string" },
+            run_url: { type: "string", description: "URL to the run or PR." },
+            pr_url: { type: "string", description: "GitHub Pull Request URL." },
             conclusion: { type: "string" },
-            error_summary: { type: "string" },
+            error_summary: { type: "string", description: "Error explanation if run was blocked or failed." },
           },
           required: ["tenant_id", "initiative_id", "request_id", "status"],
-          additionalProperties: false,
+          additionalProperties: true,
         },
       },
     ];
@@ -609,8 +638,8 @@ export class MCPServerHandler {
           if (!initiative) {
             throw new Error("Initiative not found for the LectureScribe tenant.");
           }
-          if (initiative.stage !== "approved") {
-            throw new Error("Only approved initiatives may be dispatched to Agentic Fleet.");
+          if (initiative.stage !== "approved" && initiative.stage !== "ready_for_dev") {
+            throw new Error("Only approved / ready for dev initiatives may be dispatched to Agentic Fleet.");
           }
 
           const endpoint = process.env.LECTURESCRIBE_MCP_URL;
@@ -669,19 +698,22 @@ export class MCPServerHandler {
             throw new Error("LectureScribe did not confirm that the fleet request was queued.");
           }
 
+          const tenant = await RoadmapRepository.getTenant(tenantId);
+          const targetRepo = tenant?.github_repo || args.github_repository || "dipeshsingh2012/lecturescribe";
+
           await RoadmapRepository.reportFleetStatus({
             tenant_id: tenantId,
             initiative_id: initiative.id,
             request_id: requestId,
             status: dispatch.status === "dispatching" ? "accepted" : dispatch.status,
-            github_repository: "dipeshsingh2012/lecturescribe",
+            github_repository: targetRepo,
           });
           rawResult = {
             status: dispatch.status,
             request_id: requestId,
             initiative_id: initiative.id,
             fleet_status: dispatch.status,
-            github_repository: "dipeshsingh2012/lecturescribe",
+            github_repository: targetRepo,
             message: `LectureScribe fleet request is ${dispatch.status}.`,
           };
         } else if (name === "report_fleet_status") {
@@ -693,10 +725,12 @@ export class MCPServerHandler {
             initiative_id: args.initiative_id,
             request_id: args.request_id,
             status: args.status,
+            milestone: args.milestone,
             github_repository: args.github_repository,
             github_run_id: args.github_run_id,
             github_run_attempt: args.github_run_attempt,
             run_url: args.run_url,
+            pr_url: args.pr_url,
             conclusion: args.conclusion,
             error_summary: args.error_summary,
           });

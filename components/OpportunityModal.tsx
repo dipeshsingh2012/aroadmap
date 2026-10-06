@@ -191,11 +191,11 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
     const newInit: Partial<RoadmapInitiative> = {
       id: `custom-${Date.now()}`,
       title: title.trim(),
-      stage: "discovery",
+      stage: "backlog",
       theme,
       priority,
       target_persona: persona,
-      quarter: "In Discovery",
+      quarter: "In Backlog",
       summary: situation.trim().slice(0, 130) + (situation.length > 130 ? "..." : ""),
       problem_statement: fullProblem,
       user_story: userStory,

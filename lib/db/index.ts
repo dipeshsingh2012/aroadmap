@@ -473,115 +473,167 @@ export class RoadmapRepository {
     initiative_id: string;
     request_id: string;
     status: string;
+    milestone?: string;
     github_repository?: string;
     github_run_id?: string;
     github_run_attempt?: string;
     run_url?: string;
+    pr_url?: string;
     conclusion?: string;
     error_summary?: string;
   }): Promise<Record<string, unknown>> {
-      const tenantId = input.tenant_id.toLowerCase().trim();
-      const statuses = ["accepted", "queued", "running", "succeeded", "failed", "cancelled"];
-      if (!statuses.includes(input.status)) {
-        throw new Error("Unsupported fleet status.");
+    const tenantId = input.tenant_id.toLowerCase().trim();
+    let normStatus = input.status.toLowerCase().trim();
+    if (normStatus === "in_progress") normStatus = "running";
+    if (normStatus === "completed") normStatus = "succeeded";
+    if (normStatus === "blocked") normStatus = "failed";
+
+    const statuses = ["accepted", "queued", "running", "succeeded", "failed", "cancelled"];
+    if (!statuses.includes(normStatus)) {
+      throw new Error(`Unsupported fleet status '${input.status}'.`);
+    }
+
+    const p = getPool();
+    const client = await p.connect();
+    try {
+      await client.query("BEGIN");
+      const initiative = await client.query(
+        "SELECT id, stage, quarter FROM aroadmap.initiatives WHERE tenant_id = $1 AND id = $2 LIMIT 1",
+        [tenantId, input.initiative_id]
+      );
+      if (initiative.rowCount === 0) {
+        throw new Error("Initiative not found for this tenant.");
       }
 
-      const p = getPool();
-      const client = await p.connect();
-      try {
-        await client.query("BEGIN");
-        const initiative = await client.query(
-          "SELECT id FROM aroadmap.initiatives WHERE tenant_id = $1 AND id = $2 LIMIT 1",
-          [tenantId, input.initiative_id]
-        );
-        if (initiative.rowCount === 0) {
-          throw new Error("Initiative not found for this tenant.");
-        }
+      const currentInit = initiative.rows[0];
+      const currentStage = currentInit.stage;
 
-        const existing = await client.query(
-          "SELECT * FROM aroadmap.fleet_runs WHERE request_id = $1 FOR UPDATE",
-          [input.request_id]
-        );
-        if (existing.rowCount) {
-          const current = existing.rows[0];
-          if (current.tenant_id !== tenantId || current.initiative_id !== input.initiative_id) {
-            throw new Error("request_id is already associated with another initiative.");
-          }
-          const terminal = ["succeeded", "failed", "cancelled"];
-          const rank: Record<string, number> = {
-            accepted: 0,
-            queued: 1,
-            running: 2,
-            succeeded: 3,
-            failed: 3,
-            cancelled: 3,
-          };
-          if (
-            terminal.includes(current.status) &&
-            current.status !== input.status &&
-            rank[input.status] >= rank[current.status]
-          ) {
-            throw new Error("Fleet status transition is invalid.");
-          }
-          if (rank[input.status] < rank[current.status]) {
-            await client.query("COMMIT");
-            return current;
-          }
+      const existing = await client.query(
+        "SELECT * FROM aroadmap.fleet_runs WHERE request_id = $1 FOR UPDATE",
+        [input.request_id]
+      );
+      if (existing.rowCount) {
+        const current = existing.rows[0];
+        if (current.tenant_id !== tenantId || current.initiative_id !== input.initiative_id) {
+          throw new Error("request_id is already associated with another initiative.");
         }
+        const terminal = ["succeeded", "failed", "cancelled"];
+        const rank: Record<string, number> = {
+          accepted: 0,
+          queued: 1,
+          running: 2,
+          succeeded: 3,
+          failed: 3,
+          cancelled: 3,
+        };
+        if (
+          terminal.includes(current.status) &&
+          current.status !== normStatus &&
+          rank[normStatus] >= rank[current.status]
+        ) {
+          throw new Error("Fleet status transition is invalid.");
+        }
+        if (rank[normStatus] < rank[current.status]) {
+          await client.query("COMMIT");
+          return current;
+        }
+      }
 
-        const result = await client.query(
-          `INSERT INTO aroadmap.fleet_runs (
-            request_id, tenant_id, initiative_id, status, github_repository,
-            github_run_id, github_run_attempt, run_url, conclusion, error_summary
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-          ON CONFLICT (request_id) DO UPDATE SET
-            status = EXCLUDED.status,
-            github_repository = COALESCE(EXCLUDED.github_repository, aroadmap.fleet_runs.github_repository),
-            github_run_id = COALESCE(EXCLUDED.github_run_id, aroadmap.fleet_runs.github_run_id),
-            github_run_attempt = COALESCE(EXCLUDED.github_run_attempt, aroadmap.fleet_runs.github_run_attempt),
-            run_url = COALESCE(EXCLUDED.run_url, aroadmap.fleet_runs.run_url),
-            conclusion = COALESCE(EXCLUDED.conclusion, aroadmap.fleet_runs.conclusion),
-            error_summary = COALESCE(EXCLUDED.error_summary, aroadmap.fleet_runs.error_summary),
-            updated_at = NOW()
-          WHERE aroadmap.fleet_runs.tenant_id = EXCLUDED.tenant_id
-            AND aroadmap.fleet_runs.initiative_id = EXCLUDED.initiative_id
-            AND (
-              aroadmap.fleet_runs.status = EXCLUDED.status OR
-              (aroadmap.fleet_runs.status IN ('accepted', 'queued') AND EXCLUDED.status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')) OR
-              (aroadmap.fleet_runs.status = 'running' AND EXCLUDED.status IN ('succeeded', 'failed', 'cancelled'))
-            )
-          RETURNING *`,
-          [
-            input.request_id,
-            tenantId,
-            input.initiative_id,
-            input.status,
-            input.github_repository || null,
-            input.github_run_id || null,
-            input.github_run_attempt || null,
-            input.run_url || null,
-            input.conclusion || null,
-            input.error_summary || null,
-          ]
-        );
-        if (result.rowCount === 0) {
-          throw new Error("Fleet status update conflicts with existing request state.");
+      const effectiveRunUrl = input.run_url || input.pr_url || null;
+      const effectiveConclusion = input.conclusion || input.milestone || null;
+
+      const result = await client.query(
+        `INSERT INTO aroadmap.fleet_runs (
+          request_id, tenant_id, initiative_id, status, github_repository,
+          github_run_id, github_run_attempt, run_url, conclusion, error_summary
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (request_id) DO UPDATE SET
+          status = EXCLUDED.status,
+          github_repository = COALESCE(EXCLUDED.github_repository, aroadmap.fleet_runs.github_repository),
+          github_run_id = COALESCE(EXCLUDED.github_run_id, aroadmap.fleet_runs.github_run_id),
+          github_run_attempt = COALESCE(EXCLUDED.github_run_attempt, aroadmap.fleet_runs.github_run_attempt),
+          run_url = COALESCE(EXCLUDED.run_url, aroadmap.fleet_runs.run_url),
+          conclusion = COALESCE(EXCLUDED.conclusion, aroadmap.fleet_runs.conclusion),
+          error_summary = COALESCE(EXCLUDED.error_summary, aroadmap.fleet_runs.error_summary),
+          updated_at = NOW()
+        WHERE aroadmap.fleet_runs.tenant_id = EXCLUDED.tenant_id
+          AND aroadmap.fleet_runs.initiative_id = EXCLUDED.initiative_id
+          AND (
+            aroadmap.fleet_runs.status = EXCLUDED.status OR
+            (aroadmap.fleet_runs.status IN ('accepted', 'queued') AND EXCLUDED.status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')) OR
+            (aroadmap.fleet_runs.status = 'running' AND EXCLUDED.status IN ('succeeded', 'failed', 'cancelled'))
+          )
+        RETURNING *`,
+        [
+          input.request_id,
+          tenantId,
+          input.initiative_id,
+          normStatus,
+          input.github_repository || null,
+          input.github_run_id || null,
+          input.github_run_attempt || null,
+          effectiveRunUrl,
+          effectiveConclusion,
+          input.error_summary || null,
+        ]
+      );
+      if (result.rowCount === 0) {
+        throw new Error("Fleet status update conflicts with existing request state.");
+      }
+
+      // Determine forward-only target stage from milestone or status
+      let targetStage: string | undefined;
+      if (input.milestone) {
+        const MILESTONE_TO_STAGE: Record<string, string> = {
+          design_approved: "design_approved",
+          dev_started: "in_development",
+          security_started: "security_review",
+          qa_started: "qa_review",
+          review_started: "code_review",
+          merged: "shipped",
+        };
+        targetStage = MILESTONE_TO_STAGE[input.milestone];
+      } else if (normStatus === "running") {
+        if (currentStage === "approved" || currentStage === "ready_for_dev") {
+          targetStage = "in_development";
         }
-        if (input.status === "running") {
+      }
+
+      if (targetStage) {
+        const STAGE_RANK: Record<string, number> = {
+          backlog: 0,
+          discovery: 0,
+          spec: 0,
+          ready_for_dev: 1,
+          approved: 1,
+          design_approved: 2,
+          in_development: 3,
+          development: 3,
+          security_review: 4,
+          qa_review: 5,
+          code_review: 6,
+          shipped: 7,
+        };
+        const currentRank = STAGE_RANK[currentStage] ?? 0;
+        const targetRank = STAGE_RANK[targetStage] ?? 0;
+        if (targetRank >= currentRank) {
+          const targetQuarter = targetStage === "shipped" ? "Shipped" : "In Development";
           await client.query(
             `UPDATE aroadmap.initiatives
-             SET stage = 'development', quarter = 'In Development', updated_at = NOW()
-             WHERE tenant_id = $1 AND id = $2 AND stage = 'approved'`,
-            [tenantId, input.initiative_id]
+             SET stage = $1, quarter = $2, updated_at = NOW()
+             WHERE tenant_id = $3 AND id = $4`,
+            [targetStage, targetQuarter, tenantId, input.initiative_id]
           );
         }
-        await client.query("COMMIT");
-        return result.rows[0];
-      } catch (err) {
-        await client.query("ROLLBACK");
-        throw err;
-      } finally {
-        client.release();
       }
+
+      await client.query("COMMIT");
+      return result.rows[0];
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
     }
+  }
 }

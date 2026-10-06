@@ -1,4 +1,41 @@
-export type RoadmapStage = "discovery" | "spec" | "approved" | "development" | "shipped";
+export type RoadmapStage =
+  | "backlog"
+  | "ready_for_dev"
+  | "design_approved"
+  | "in_development"
+  | "security_review"
+  | "qa_review"
+  | "code_review"
+  | "shipped"
+  | "discovery"
+  | "spec"
+  | "approved"
+  | "development";
+
+export const CANONICAL_STAGES: RoadmapStage[] = [
+  "backlog",
+  "ready_for_dev",
+  "design_approved",
+  "in_development",
+  "security_review",
+  "qa_review",
+  "code_review",
+  "shipped",
+];
+
+export function normalizeStage(stage: RoadmapStage | string): RoadmapStage {
+  switch (stage) {
+    case "discovery":
+    case "spec":
+      return "backlog";
+    case "approved":
+      return "ready_for_dev";
+    case "development":
+      return "in_development";
+    default:
+      return stage as RoadmapStage;
+  }
+}
 
 export type StrategicTheme =
   | "Core AI & Retrieval"
@@ -49,46 +86,104 @@ export interface Tenant {
   github_repo?: string;   // 'dipeshsingh2012/rfpengine'
   visibility?: "public" | "private" | "password";
   created_at?: string;
+  stages?: RoadmapStage[];
+}
+
+export function getTenantStages(tenant?: Tenant | null): RoadmapStage[] {
+  if (tenant?.stages && tenant.stages.length > 0) {
+    return tenant.stages;
+  }
+  return CANONICAL_STAGES;
 }
 
 export const STAGE_CONFIG: Record<
   RoadmapStage,
   { label: string; icon: string; description: string; color: string; badgeClass: string }
 > = {
+  backlog: {
+    label: "Backlog / To do",
+    icon: "📋",
+    description: "Customer interviews, user research & prioritized backlog items",
+    color: "#64748b",
+    badgeClass: "stage-backlog",
+  },
+  ready_for_dev: {
+    label: "Ready for dev",
+    icon: "🎯",
+    description: "PRD documentation, Gherkin criteria & operator sign-off",
+    color: "#8b5cf6",
+    badgeClass: "stage-ready",
+  },
+  design_approved: {
+    label: "Design approved",
+    icon: "📐",
+    description: "System architecture and technical design approved by Architect",
+    color: "#0284c7",
+    badgeClass: "stage-design-approved",
+  },
+  in_development: {
+    label: "In development",
+    icon: "🏗️",
+    description: "Active sprint execution, coding branch & implementation",
+    color: "#3b82f6",
+    badgeClass: "stage-development",
+  },
+  security_review: {
+    label: "Security review",
+    icon: "🛡️",
+    description: "Security scanning, secrets audit & vulnerability verification",
+    color: "#eab308",
+    badgeClass: "stage-security",
+  },
+  qa_review: {
+    label: "QA review",
+    icon: "🧪",
+    description: "Automated test suite, regression checks & acceptance criteria validation",
+    color: "#ec4899",
+    badgeClass: "stage-qa",
+  },
+  code_review: {
+    label: "Code review",
+    icon: "👀",
+    description: "Senior agent code review, diff verification & quality sign-off",
+    color: "#a855f7",
+    badgeClass: "stage-review",
+  },
+  shipped: {
+    label: "Shipped / Done",
+    icon: "🚀",
+    description: "Available in production with release notes & verified PR",
+    color: "#10b981",
+    badgeClass: "stage-shipped",
+  },
+  // Legacy aliases
   discovery: {
     label: "In Discovery",
     icon: "🔍",
-    description: "Customer interviews, user research & problem validation",
+    description: "Legacy stage: Backlog & problem validation",
     color: "#64748b",
     badgeClass: "stage-discovery",
   },
   spec: {
     label: "In Spec & Design",
     icon: "📐",
-    description: "PRD documentation, Gherkin criteria & technical architecture",
+    description: "Legacy stage: PRD & criteria definition",
     color: "#8b5cf6",
     badgeClass: "stage-spec",
   },
   approved: {
     label: "Approved & Ready",
     icon: "✅",
-    description: "Signed off by Lead, queued for autonomous agent dispatch",
+    description: "Legacy stage: Approved for dev",
     color: "#0284c7",
     badgeClass: "stage-approved",
   },
   development: {
     label: "In Development",
     icon: "🏗️",
-    description: "Active sprint execution, coding branch & test implementation",
+    description: "Legacy stage: In development",
     color: "#3b82f6",
     badgeClass: "stage-development",
-  },
-  shipped: {
-    label: "Shipped & Live",
-    icon: "🚀",
-    description: "Available in production with release notes & verified metrics",
-    color: "#10b981",
-    badgeClass: "stage-shipped",
   },
 };
 

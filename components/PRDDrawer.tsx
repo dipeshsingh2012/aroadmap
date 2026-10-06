@@ -27,6 +27,7 @@ import {
   STRATEGIC_THEMES,
   PriorityLevel,
   computeRICEScore,
+  CANONICAL_STAGES,
 } from "@/lib/types";
 
 interface PRDDrawerProps {
@@ -40,7 +41,7 @@ interface PRDDrawerProps {
   onDeleteInitiative?: (id: string) => Promise<any>;
 }
 
-const STAGES: RoadmapStage[] = ["discovery", "spec", "approved", "development", "shipped"];
+const STAGES: RoadmapStage[] = CANONICAL_STAGES;
 const PRIORITIES: PriorityLevel[] = ["P0 - Critical", "P1 - High", "P2 - Medium", "P3 - Low"];
 const STANDARD_PERSONAS = [
   "Proposal Manager",
@@ -181,7 +182,7 @@ export const PRDDrawer: React.FC<PRDDrawerProps> = ({
       try {
         await onApproveAndStartDev(initiative.id);
         setApprovedSuccess(true);
-        onMoveStage(initiative.id, "development");
+        onMoveStage(initiative.id, "ready_for_dev");
       } catch (err) {
         console.error(err);
       } finally {
@@ -645,7 +646,7 @@ export const PRDDrawer: React.FC<PRDDrawerProps> = ({
                 </div>
 
                 {/* Human Sign-Off Gate & Autonomous Dev Dispatch Button */}
-                {initiative.stage === "spec" && (
+                {(initiative.stage === "spec" || initiative.stage === "backlog" || initiative.stage === "discovery") && (
                   <div className="p-4 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-between gap-3">
                     <div>
                       <h4 className="font-bold text-violet-900 text-xs flex items-center gap-1.5">
