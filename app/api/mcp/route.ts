@@ -15,14 +15,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const toolName = body?.method === "tools/call" ? body?.params?.name : undefined;
     const toolArguments = body?.params?.arguments;
-    const approvingLectureScribeInitiative =
-      toolName === "transition_initiative_stage" &&
+    const startingLectureScribeInitiative =
       String(toolArguments?.tenant_id || "").toLowerCase().trim() === "lecturescribe" &&
-      toolArguments?.stage === "approved";
-    if (toolName === "trigger_lecturescribe_fleet" || approvingLectureScribeInitiative) {
+      ((toolName === "transition_initiative_stage" && toolArguments?.stage === "development") ||
+        (toolName === "update_initiative" && toolArguments?.updates?.stage === "development"));
+    if (toolName === "trigger_lecturescribe_fleet" || startingLectureScribeInitiative) {
       if (!matchesBearerToken(req.headers.get("authorization"), process.env.AROADMAP_FLEET_TRIGGER_TOKEN)) {
         return NextResponse.json(
-          { jsonrpc: "2.0", id: body?.id ?? null, error: { code: -32001, message: "Unauthorized LectureScribe fleet approval or trigger." } },
+          { jsonrpc: "2.0", id: body?.id ?? null, error: { code: -32001, message: "Unauthorized LectureScribe development transition or fleet trigger." } },
           { status: 401 }
         );
       }

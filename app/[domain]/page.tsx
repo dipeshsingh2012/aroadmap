@@ -38,6 +38,11 @@ export default function TenantDomainPage({
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpportunityModalOpen, setIsOpportunityModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [operatorAuthenticated, setOperatorAuthenticated] = useState(false);
+  const [showOperatorSignIn, setShowOperatorSignIn] = useState(false);
+  const [operatorPassword, setOperatorPassword] = useState("");
+  const [operatorSignInError, setOperatorSignInError] = useState("");
+  const [pendingDevelopmentMove, setPendingDevelopmentMove] = useState<{ id: string; stage: RoadmapStage } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -76,10 +81,30 @@ export default function TenantDomainPage({
     loadData();
   }, [tenantId]);
 
+  useEffect(() => {
+    if (tenantId !== "lecturescribe") return;
+    fetch(`/api/tenants/${tenantId}/operator-session`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not check operator session.");
+        const data = await response.json();
+        setOperatorAuthenticated(data.authenticated === true);
+      })
+      .catch((err) => {
+        console.error("Failed to check LectureScribe operator session:", err);
+        setOperatorAuthenticated(false);
+      });
+  }, [tenantId]);
+
   // Stage transition handler (Optimistic + DB sync)
-  const handleMoveStage = async (id: string, stage: RoadmapStage) => {
+  const handleMoveStage = async (id: string, stage: RoadmapStage, operatorAuthorized = false) => {
     const targetItem = initiatives.find((i) => i.id === id);
     if (!targetItem || targetItem.stage === stage) return;
+    if (tenantId === "lecturescribe" && stage === "development" && !operatorAuthenticated && !operatorAuthorized) {
+      setPendingDevelopmentMove({ id, stage });
+      setOperatorSignInError("");
+      setShowOperatorSignIn(true);
+      return;
+    }
 
     const quarter = stage === "shipped" ? "Shipped" : targetItem.quarter === "Shipped" ? "In Backlog" : targetItem.quarter;
 
@@ -87,17 +112,67 @@ export default function TenantDomainPage({
       prev.map((i) => (i.id === id ? { ...i, stage, quarter } : i))
     );
 
-    showToast(`Moved "${targetItem.title}" to ${stage.toUpperCase()}`);
+    showToast(
+      tenantId === "lecturescribe" && stage === "development"
+        ? `Starting Agentic Fleet for "${targetItem.title}"...`
+        : `Moved "${targetItem.title}" to ${stage.toUpperCase()}`
+    );
 
     try {
-      await fetch(`/api/tenants/${tenantId}/initiatives/${id}`, {
+      const response = await fetch(`/api/tenants/${tenantId}/initiatives/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage, quarter }),
+        body: JSON.stringify({ stage, quarter, request_id: crypto.randomUUID() }),
       });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to save stage transition.");
+      }
+      if (tenantId === "lecturescribe" && stage === "development" && result.request_id) {
+        showToast(`Agentic Fleet ${result.fleet_status || result.status}: ${result.request_id}`);
+      }
     } catch (err) {
-      console.warn("Failed to persist stage change:", err);
+      setInitiatives((prev) => prev.map((item) => (item.id === id ? targetItem : item)));
+      const message = err instanceof Error ? err.message : "Failed to persist stage change.";
+      showToast(message);
+      console.error("Failed to persist stage change:", err);
     }
+  };
+
+  const handleOperatorSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setOperatorSignInError("");
+    try {
+      const response = await fetch(`/api/tenants/${tenantId}/operator-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: operatorPassword }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Operator sign-in failed.");
+      }
+      setOperatorAuthenticated(true);
+      setShowOperatorSignIn(false);
+      setOperatorPassword("");
+      const pending = pendingDevelopmentMove;
+      setPendingDevelopmentMove(null);
+      if (pending) {
+        await handleMoveStage(pending.id, pending.stage, true);
+      }
+    } catch (err) {
+      setOperatorSignInError(err instanceof Error ? err.message : "Operator sign-in failed.");
+    }
+  };
+
+  const handleOperatorSignOut = async () => {
+    const response = await fetch(`/api/tenants/${tenantId}/operator-session`, { method: "DELETE" });
+    if (!response.ok) {
+      showToast("Could not sign out the LectureScribe operator session.");
+      return;
+    }
+    setOperatorAuthenticated(false);
+    showToast("LectureScribe operator signed out.");
   };
 
   // Upvote Handler (Optimistic + DB sync)
@@ -231,6 +306,14 @@ export default function TenantDomainPage({
         </div>
       )}
 
+      {tenantId === "lecturescribe" && operatorAuthenticated && (
+        <div className="flex justify-end px-4 py-2 bg-slate-900 text-white text-xs">
+          <button type="button" onClick={handleOperatorSignOut} className="font-semibold hover:underline">
+            Sign out LectureScribe operator
+          </button>
+        </div>
+      )}
+
       {/* Header & Controls */}
       <Header
         tenant={tenant}
@@ -331,6 +414,47 @@ export default function TenantDomainPage({
       </main>
 
       {/* Living PRD Slide-over Drawer */}
+      {showOperatorSignIn && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4">
+          <form onSubmit={handleOperatorSignIn} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Operator sign-in required</h2>
+              <p className="mt-1 text-xs text-slate-600">
+                Sign in to move an approved LectureScribe initiative to In Development and trigger Agentic Fleet.
+              </p>
+            </div>
+            <label className="block text-xs font-semibold text-slate-700">
+              Operator password
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                value={operatorPassword}
+                onChange={(event) => setOperatorPassword(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+            </label>
+            {operatorSignInError && <p role="alert" className="text-xs text-red-700">{operatorSignInError}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOperatorSignIn(false);
+                  setPendingDevelopmentMove(null);
+                  setOperatorPassword("");
+                }}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button type="submit" className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">
+                Sign in and start
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {selectedInitiative && (
         <PRDDrawer
           initiative={selectedInitiative}

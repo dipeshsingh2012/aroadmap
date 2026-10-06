@@ -123,7 +123,7 @@ export class MCPServerHandler {
               type: "string",
               enum: ["mcp_start_dev", "mcp_initiative", "fleet_trigger"],
               default: "mcp_start_dev",
-              description: "LectureScribe Agentic Fleet event used when approving a LectureScribe initiative.",
+              description: "LectureScribe Agentic Fleet event used when moving an approved initiative to development.",
             },
             request_id: { type: "string", description: "Optional idempotency key for the dispatch." },
           },
@@ -349,6 +349,11 @@ export class MCPServerHandler {
         // 2. UPDATE INITIATIVE
         // ───────────────────────────────────────────────────────────
         else if (name === "update_initiative") {
+          if (tenantId === "lecturescribe" && args.updates?.stage === "development") {
+            throw new Error(
+              "Use transition_initiative_stage to move a LectureScribe initiative to development and trigger Agentic Fleet."
+            );
+          }
           const updated = await RoadmapRepository.updateInitiative(
             tenantId,
             args.item_id,
@@ -374,22 +379,33 @@ export class MCPServerHandler {
           const quarter =
             args.quarter || (targetStage === "shipped" ? "Shipped" : targetStage === "development" ? "In Development" : undefined);
 
-          const updated = await RoadmapRepository.updateInitiative(tenantId, args.item_id, {
-            stage: targetStage,
-            ...(quarter ? { quarter } : {}),
-          });
+          const existing = await RoadmapRepository.getInitiative(tenantId, args.item_id);
 
-          if (!updated) {
+          if (!existing) {
             rawResult = { error: `Initiative '${args.item_id}' not found` };
-          } else {
+          } else if (
+            tenantId === "lecturescribe" &&
+            targetStage === "development" &&
+            existing.stage === "development"
+          ) {
             rawResult = {
-              status: "success",
+              status: "already_in_development",
               initiative_id: args.item_id,
-              stage: targetStage,
-              quarter: updated.quarter,
-              message: `Transitioned '${updated.title}' to stage '${targetStage.toUpperCase()}'`,
+              stage: "development",
+              quarter: existing.quarter,
+              message: "LectureScribe initiative is already in development; no duplicate fleet run was dispatched.",
             };
-            if (tenantId === "lecturescribe" && targetStage === "approved") {
+          } else if (
+            tenantId === "lecturescribe" &&
+            targetStage === "development" &&
+            existing.stage !== "approved"
+          ) {
+            rawResult = {
+              error: "LectureScribe initiatives must be approved before they can be moved to development.",
+            };
+          } else {
+            let dispatch: any;
+            if (tenantId === "lecturescribe" && targetStage === "development") {
               const dispatchResponse = await this.handleRequest({
                 jsonrpc: "2.0",
                 id,
@@ -404,19 +420,35 @@ export class MCPServerHandler {
                   },
                 },
               });
-              const dispatch = dispatchResponse?.result;
+              dispatch = dispatchResponse?.result;
               if (!dispatch || dispatch.isError || dispatch.error) {
-                throw new Error(dispatch?.error || "LectureScribe fleet dispatch failed after approval.");
+                throw new Error(dispatch?.error || "LectureScribe fleet dispatch failed.");
               }
-              rawResult = {
-                ...rawResult,
-                status: dispatch.status,
-                fleet_status: dispatch.fleet_status,
-                request_id: dispatch.request_id,
-                github_repository: dispatch.github_repository,
-                message: `Approved '${updated.title}' and dispatched it to LectureScribe Agentic Fleet.`,
-              };
             }
+
+            const updated = await RoadmapRepository.updateInitiative(tenantId, args.item_id, {
+              stage: targetStage,
+              ...(quarter ? { quarter } : {}),
+            });
+            if (!updated) {
+              throw new Error(`Initiative '${args.item_id}' disappeared during its stage transition.`);
+            }
+            rawResult = {
+              status: dispatch?.status || "success",
+              initiative_id: args.item_id,
+              stage: targetStage,
+              quarter: updated.quarter,
+              ...(dispatch
+                ? {
+                    fleet_status: dispatch.fleet_status,
+                    request_id: dispatch.request_id,
+                    github_repository: dispatch.github_repository,
+                  }
+                : {}),
+              message: dispatch
+                ? `Moved '${updated.title}' to development and dispatched it to LectureScribe Agentic Fleet.`
+                : `Transitioned '${updated.title}' to stage '${targetStage.toUpperCase()}'`,
+            };
           }
         }
 
