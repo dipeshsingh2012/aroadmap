@@ -35,8 +35,7 @@ interface PRDDrawerProps {
   onClose: () => void;
   isUpvoted: boolean;
   onUpvote: (id: string, e: React.MouseEvent) => void;
-  onApproveAndStartDev?: (id: string) => Promise<void>;
-  onMoveStage: (id: string, stage: RoadmapStage) => void;
+  onApproveAndStartDev: (id: string) => Promise<void>;
   onUpdateInitiative?: (id: string, updates: Partial<RoadmapInitiative>) => Promise<any>;
   onDeleteInitiative?: (id: string) => Promise<any>;
 }
@@ -60,7 +59,6 @@ export const PRDDrawer: React.FC<PRDDrawerProps> = ({
   isUpvoted,
   onUpvote,
   onApproveAndStartDev,
-  onMoveStage,
   onUpdateInitiative,
   onDeleteInitiative,
 }) => {
@@ -177,17 +175,14 @@ export const PRDDrawer: React.FC<PRDDrawerProps> = ({
   };
 
   const handleApprove = async () => {
-    if (onApproveAndStartDev) {
-      setIsApproving(true);
-      try {
-        await onApproveAndStartDev(initiative.id);
-        setApprovedSuccess(true);
-        onMoveStage(initiative.id, "ready_for_dev");
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsApproving(false);
-      }
+    setIsApproving(true);
+    try {
+      await onApproveAndStartDev(initiative.id);
+      setApprovedSuccess(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -646,7 +641,11 @@ export const PRDDrawer: React.FC<PRDDrawerProps> = ({
                 </div>
 
                 {/* Human Sign-Off Gate & Autonomous Dev Dispatch Button */}
-                {(initiative.stage === "spec" || initiative.stage === "backlog" || initiative.stage === "discovery") && (
+                {(initiative.stage === "spec" ||
+                  initiative.stage === "backlog" ||
+                  initiative.stage === "discovery" ||
+                  initiative.stage === "approved" ||
+                  initiative.stage === "ready_for_dev") && (
                   <div className="p-4 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-between gap-3">
                     <div>
                       <h4 className="font-bold text-violet-900 text-xs flex items-center gap-1.5">

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { RoadmapRepository } from "@/lib/db";
 import { MCPServerHandler } from "@/lib/mcp-server";
-import { hasLectureScribeOperatorSession } from "@/lib/lecturescribe-operator-auth";
+import { hasOperatorSession, isOperatorAuthConfigured } from "@/lib/operator-auth";
 
 export async function GET(
   req: NextRequest,
@@ -23,9 +23,61 @@ export async function PATCH(
   const { tenant, id } = await params;
   try {
     const body = await req.json();
-    if (tenant.toLowerCase().trim() === "lecturescribe" && body?.stage === "development") {
-      if (!hasLectureScribeOperatorSession(req)) {
-        return NextResponse.json({ error: "LectureScribe operator sign-in is required to start Agentic Fleet." }, { status: 401 });
+    if (body?.stage === "ready_for_dev") {
+      if (!isOperatorAuthConfigured(tenant)) {
+        return NextResponse.json({ error: "Operator sign-in is not configured for this tenant." }, { status: 503 });
+      }
+      if (!hasOperatorSession(req, tenant)) {
+        return NextResponse.json({ error: "Operator sign-in is required to start Agentic Fleet." }, { status: 401 });
+      }
+
+      const existing = await RoadmapRepository.getInitiative(tenant, id);
+      if (!existing) {
+        return NextResponse.json({ error: "Initiative not found" }, { status: 404 });
+      }
+
+      const updated = await RoadmapRepository.updateInitiative(tenant, id, {
+        stage: "ready_for_dev",
+        ...(typeof body.quarter === "string" ? { quarter: body.quarter } : {}),
+      });
+      if (!updated) {
+        return NextResponse.json({ error: "Initiative not found" }, { status: 404 });
+      }
+
+      const dispatch = await MCPServerHandler.handleRequest({
+        jsonrpc: "2.0",
+        id: randomUUID(),
+        method: "tools/call",
+        params: {
+          name: "trigger_fleet_dispatch",
+          arguments: {
+            tenant_id: tenant,
+            initiative_id: id,
+            event_type: "mcp_start_dev",
+            request_id: typeof body.request_id === "string" ? body.request_id : undefined,
+          },
+        },
+      });
+      const result = dispatch?.result;
+      if (!result || result.isError || result.error) {
+        await RoadmapRepository.updateInitiative(tenant, id, {
+          stage: existing.stage,
+          quarter: existing.quarter,
+        });
+        return NextResponse.json(
+          { error: result?.error || "Could not dispatch Agentic Fleet." },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ ...result, initiative_id: id, stage: "ready_for_dev" });
+    }
+
+    if (body?.stage === "development") {
+      if (!isOperatorAuthConfigured(tenant)) {
+        return NextResponse.json({ error: "Operator sign-in is not configured for this tenant." }, { status: 503 });
+      }
+      if (!hasOperatorSession(req, tenant)) {
+        return NextResponse.json({ error: "Operator sign-in is required to start Agentic Fleet." }, { status: 401 });
       }
 
       const transition = await MCPServerHandler.handleRequest({
@@ -35,7 +87,7 @@ export async function PATCH(
         params: {
           name: "transition_initiative_stage",
           arguments: {
-            tenant_id: "lecturescribe",
+            tenant_id: tenant,
             item_id: id,
             stage: "development",
             request_id: typeof body.request_id === "string" ? body.request_id : undefined,

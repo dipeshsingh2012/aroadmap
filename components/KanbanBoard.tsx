@@ -9,6 +9,7 @@ interface KanbanBoardProps {
   upvotedIds: Set<string>;
   stages?: RoadmapStage[];
   onUpvote: (id: string, e: React.MouseEvent) => void;
+  onDeleteInitiative: (id: string) => Promise<void>;
   onSelectInitiative: (item: RoadmapInitiative) => void;
   onMoveStage: (id: string, stage: RoadmapStage) => void;
 }
@@ -18,6 +19,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   upvotedIds,
   stages,
   onUpvote,
+  onDeleteInitiative,
   onSelectInitiative,
   onMoveStage,
 }) => {
@@ -97,6 +99,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   item={item}
                   isUpvoted={upvotedIds.has(item.id)}
                   onUpvote={onUpvote}
+                  onDelete={onDeleteInitiative}
                   onClick={onSelectInitiative}
                   onDragStart={handleDragStart}
                 />

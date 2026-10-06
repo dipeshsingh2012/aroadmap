@@ -42,7 +42,13 @@ export default function TenantDomainPage({
   const [showOperatorSignIn, setShowOperatorSignIn] = useState(false);
   const [operatorPassword, setOperatorPassword] = useState("");
   const [operatorSignInError, setOperatorSignInError] = useState("");
-  const [pendingDevelopmentMove, setPendingDevelopmentMove] = useState<{ id: string; stage: RoadmapStage } | null>(null);
+  const [operatorSessionReady, setOperatorSessionReady] = useState(false);
+  const [pendingDevelopmentMove, setPendingDevelopmentMove] = useState<{
+    id: string;
+    stage: RoadmapStage;
+    forceDispatch: boolean;
+    resolve?: (started: boolean) => void;
+  } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -82,7 +88,8 @@ export default function TenantDomainPage({
   }, [tenantId]);
 
   useEffect(() => {
-    if (tenantId !== "lecturescribe") return;
+    setOperatorSessionReady(false);
+    setOperatorAuthenticated(false);
     fetch(`/api/tenants/${tenantId}/operator-session`)
       .then(async (response) => {
         if (!response.ok) throw new Error("Could not check operator session.");
@@ -90,20 +97,34 @@ export default function TenantDomainPage({
         setOperatorAuthenticated(data.authenticated === true);
       })
       .catch((err) => {
-        console.error("Failed to check LectureScribe operator session:", err);
+        console.error("Failed to check operator session:", err);
         setOperatorAuthenticated(false);
-      });
+      })
+      .finally(() => setOperatorSessionReady(true));
   }, [tenantId]);
 
   // Stage transition handler (Optimistic + DB sync)
-  const handleMoveStage = async (id: string, stage: RoadmapStage, operatorAuthorized = false) => {
+  const handleMoveStage = async (
+    id: string,
+    stage: RoadmapStage,
+    operatorAuthorized = false,
+    forceDispatch = false
+  ): Promise<boolean> => {
     const targetItem = initiatives.find((i) => i.id === id);
-    if (!targetItem || targetItem.stage === stage) return;
-    if (tenantId === "lecturescribe" && (stage === "development" || stage === "ready_for_dev") && !operatorAuthenticated && !operatorAuthorized) {
-      setPendingDevelopmentMove({ id, stage });
+    if (!targetItem || (targetItem.stage === stage && !forceDispatch)) return false;
+    if (
+      (stage === "development" || stage === "ready_for_dev") &&
+      !operatorSessionReady
+    ) {
+      showToast("Checking operator session. Please try again.");
+      return false;
+    }
+    if ((stage === "development" || stage === "ready_for_dev") && !operatorAuthenticated && !operatorAuthorized) {
       setOperatorSignInError("");
       setShowOperatorSignIn(true);
-      return;
+      return new Promise<boolean>((resolve) => {
+        setPendingDevelopmentMove({ id, stage, forceDispatch, resolve });
+      });
     }
 
     const quarter = stage === "shipped" ? "Shipped" : targetItem.quarter === "Shipped" ? "In Backlog" : targetItem.quarter;
@@ -113,7 +134,7 @@ export default function TenantDomainPage({
     );
 
     showToast(
-      tenantId === "lecturescribe" && stage === "development"
+      stage === "development" || stage === "ready_for_dev"
         ? `Starting Agentic Fleet for "${targetItem.title}"...`
         : `Moved "${targetItem.title}" to ${stage.toUpperCase()}`
     );
@@ -128,14 +149,19 @@ export default function TenantDomainPage({
       if (!response.ok) {
         throw new Error(result.error || "Failed to save stage transition.");
       }
-      if (tenantId === "lecturescribe" && stage === "development" && result.request_id) {
+      if (
+        (stage === "development" || stage === "ready_for_dev") &&
+        result.request_id
+      ) {
         showToast(`Agentic Fleet ${result.fleet_status || result.status}: ${result.request_id}`);
       }
+      return true;
     } catch (err) {
       setInitiatives((prev) => prev.map((item) => (item.id === id ? targetItem : item)));
       const message = err instanceof Error ? err.message : "Failed to persist stage change.";
       showToast(message);
       console.error("Failed to persist stage change:", err);
+      return false;
     }
   };
 
@@ -158,7 +184,8 @@ export default function TenantDomainPage({
       const pending = pendingDevelopmentMove;
       setPendingDevelopmentMove(null);
       if (pending) {
-        await handleMoveStage(pending.id, pending.stage, true);
+        const moved = await handleMoveStage(pending.id, pending.stage, true, pending.forceDispatch);
+        pending.resolve?.(moved);
       }
     } catch (err) {
       setOperatorSignInError(err instanceof Error ? err.message : "Operator sign-in failed.");
@@ -168,11 +195,11 @@ export default function TenantDomainPage({
   const handleOperatorSignOut = async () => {
     const response = await fetch(`/api/tenants/${tenantId}/operator-session`, { method: "DELETE" });
     if (!response.ok) {
-      showToast("Could not sign out the LectureScribe operator session.");
+      showToast("Could not sign out the operator session.");
       return;
     }
     setOperatorAuthenticated(false);
-    showToast("LectureScribe operator signed out.");
+    showToast("Operator signed out.");
   };
 
   // Upvote Handler (Optimistic + DB sync)
@@ -255,15 +282,23 @@ export default function TenantDomainPage({
       const res = await fetch(`/api/tenants/${tenantId}/initiatives/${id}`, {
         method: "DELETE",
       });
-
-      if (res.ok) {
-        setInitiatives((prev) => prev.filter((item) => item.id !== id));
-        setSelectedInitiative(null);
-        showToast("🗑️ Initiative deleted from roadmap.");
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || "Failed to delete initiative.");
       }
+
+      setInitiatives((prev) => prev.filter((item) => item.id !== id));
+      setUpvotedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setSelectedInitiative((selected) => (selected?.id === id ? null : selected));
+      showToast("🗑️ Initiative deleted from roadmap.");
     } catch (err) {
       console.error("Failed to delete initiative:", err);
-      showToast("⚠️ Failed to delete initiative.");
+      showToast(err instanceof Error ? err.message : "⚠️ Failed to delete initiative.");
+      throw err;
     }
   };
 
@@ -306,10 +341,10 @@ export default function TenantDomainPage({
         </div>
       )}
 
-      {tenantId === "lecturescribe" && operatorAuthenticated && (
+      {operatorAuthenticated && (
         <div className="flex justify-end px-4 py-2 bg-slate-900 text-white text-xs">
           <button type="button" onClick={handleOperatorSignOut} className="font-semibold hover:underline">
-            Sign out LectureScribe operator
+            Sign out operator
           </button>
         </div>
       )}
@@ -363,6 +398,7 @@ export default function TenantDomainPage({
                 upvotedIds={upvotedIds}
                 stages={tenant?.stages}
                 onUpvote={handleUpvote}
+                onDeleteInitiative={handleDeleteInitiative}
                 onSelectInitiative={(item) => setSelectedInitiative(item)}
                 onMoveStage={handleMoveStage}
               />
@@ -382,6 +418,7 @@ export default function TenantDomainPage({
                 initiatives={filteredInitiatives}
                 upvotedIds={upvotedIds}
                 onUpvote={handleUpvote}
+                onDeleteInitiative={handleDeleteInitiative}
                 onSelectInitiative={(item) => setSelectedInitiative(item)}
               />
             )}
@@ -421,7 +458,7 @@ export default function TenantDomainPage({
             <div>
               <h2 className="text-base font-bold text-slate-900">Operator sign-in required</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Sign in to move an approved LectureScribe initiative to In Development and trigger Agentic Fleet.
+                Sign in to move an initiative to Ready for dev and trigger Agentic Fleet.
               </p>
             </div>
             <label className="block text-xs font-semibold text-slate-700">
@@ -441,6 +478,7 @@ export default function TenantDomainPage({
                 type="button"
                 onClick={() => {
                   setShowOperatorSignIn(false);
+                  pendingDevelopmentMove?.resolve?.(false);
                   setPendingDevelopmentMove(null);
                   setOperatorPassword("");
                 }}
@@ -462,7 +500,12 @@ export default function TenantDomainPage({
           onClose={() => setSelectedInitiative(null)}
           isUpvoted={upvotedIds.has(selectedInitiative.id)}
           onUpvote={handleUpvote}
-          onMoveStage={handleMoveStage}
+          onApproveAndStartDev={async (id) => {
+            const started = await handleMoveStage(id, "ready_for_dev", false, true);
+            if (!started) {
+              throw new Error("Could not start Agentic Fleet.");
+            }
+          }}
           onUpdateInitiative={handleUpdateInitiative}
           onDeleteInitiative={handleDeleteInitiative}
         />

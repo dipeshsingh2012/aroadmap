@@ -82,6 +82,9 @@ async function runTestSuite() {
   // 4. MCP TOOL DECLARATIONS
   console.log("\n4. Testing MCP Tools & report_fleet_status Schema...");
   const tools = MCPServerHandler.getTools();
+  const fleetTriggerTool = tools.find((t: any) => t.name === "trigger_fleet_dispatch");
+  assert(!!fleetTriggerTool, "Tenant-scoped Fleet dispatch tool declared");
+
   const reportTool = tools.find((t: any) => t.name === "report_fleet_status");
   assert(!!reportTool, "report_fleet_status tool declared");
 

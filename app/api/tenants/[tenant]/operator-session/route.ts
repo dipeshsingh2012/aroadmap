@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  createLectureScribeOperatorSession,
-  hasLectureScribeOperatorSession,
-  LECTURESCRIBE_OPERATOR_COOKIE,
-  verifyLectureScribeOperatorPassword,
-} from "@/lib/lecturescribe-operator-auth";
+  createOperatorSession,
+  hasOperatorSession,
+  isOperatorAuthConfigured,
+  operatorSessionCookieName,
+  verifyOperatorPassword,
+} from "@/lib/operator-auth";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ tenant: string }> }
 ) {
   const { tenant } = await params;
-  if (tenant.toLowerCase().trim() !== "lecturescribe") {
-    return NextResponse.json({ error: "Operator sessions are only enabled for LectureScribe." }, { status: 404 });
-  }
-  return NextResponse.json({ authenticated: hasLectureScribeOperatorSession(req) });
+  return NextResponse.json({
+    configured: isOperatorAuthConfigured(tenant),
+    authenticated: hasOperatorSession(req, tenant),
+  });
 }
 
 export async function POST(
@@ -22,19 +23,8 @@ export async function POST(
   { params }: { params: Promise<{ tenant: string }> }
 ) {
   const { tenant } = await params;
-  if (tenant.toLowerCase().trim() !== "lecturescribe") {
-    return NextResponse.json({ error: "Operator sessions are only enabled for LectureScribe." }, { status: 404 });
-  }
-
-  const expectedPassword = process.env.AROADMAP_LECTURESCRIBE_OPERATOR_PASSWORD;
-  const sessionSecret = process.env.AROADMAP_LECTURESCRIBE_SESSION_SECRET;
-  if (
-    !expectedPassword ||
-    Buffer.byteLength(expectedPassword) < 32 ||
-    !sessionSecret ||
-    Buffer.byteLength(sessionSecret) < 32
-  ) {
-    return NextResponse.json({ error: "LectureScribe operator sign-in is not configured." }, { status: 503 });
+  if (!isOperatorAuthConfigured(tenant)) {
+    return NextResponse.json({ error: "Operator sign-in is not configured for this tenant." }, { status: 503 });
   }
 
   let body: { password?: unknown };
@@ -47,14 +37,14 @@ export async function POST(
   if (typeof body.password !== "string" || body.password.length > 256) {
     return NextResponse.json({ error: "Invalid operator password." }, { status: 400 });
   }
-  if (!verifyLectureScribeOperatorPassword(body.password)) {
+  if (!verifyOperatorPassword(tenant, body.password)) {
     return NextResponse.json({ error: "Invalid operator password." }, { status: 401 });
   }
 
   try {
-    const session = createLectureScribeOperatorSession();
+    const session = createOperatorSession(tenant);
     const response = NextResponse.json({ authenticated: true });
-    response.cookies.set(LECTURESCRIBE_OPERATOR_COOKIE, session.value, {
+    response.cookies.set(operatorSessionCookieName(tenant), session.value, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -63,7 +53,7 @@ export async function POST(
     });
     return response;
   } catch (err) {
-    console.error("LectureScribe operator session creation failed:", err);
+    console.error("Operator session creation failed:", err);
     return NextResponse.json({ error: "Could not create operator session." }, { status: 500 });
   }
 }
@@ -73,11 +63,8 @@ export async function DELETE(
   { params }: { params: Promise<{ tenant: string }> }
 ) {
   const { tenant } = await params;
-  if (tenant.toLowerCase().trim() !== "lecturescribe") {
-    return NextResponse.json({ error: "Operator sessions are only enabled for LectureScribe." }, { status: 404 });
-  }
   const response = NextResponse.json({ authenticated: false });
-  response.cookies.set(LECTURESCRIBE_OPERATOR_COOKIE, "", {
+  response.cookies.set(operatorSessionCookieName(tenant), "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",

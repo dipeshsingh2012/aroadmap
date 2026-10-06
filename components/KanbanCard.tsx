@@ -1,13 +1,15 @@
 "use client";
 
 import React from "react";
-import { ThumbsUp, User, GripVertical, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { ThumbsUp, User, GripVertical, ChevronRight, Trash2 } from "lucide-react";
 import { RoadmapInitiative } from "@/lib/types";
 
 interface KanbanCardProps {
   item: RoadmapInitiative;
   isUpvoted: boolean;
   onUpvote: (id: string, e: React.MouseEvent) => void;
+  onDelete: (id: string) => Promise<void>;
   onClick: (item: RoadmapInitiative) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
 }
@@ -16,12 +18,29 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
   item,
   isUpvoted,
   onUpvote,
+  onDelete,
   onClick,
   onDragStart,
 }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (isDeleting || !window.confirm(`Permanently delete "${item.title}"?`)) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete(item.id);
+    } catch (error) {
+      console.error("Failed to delete initiative:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div
-      draggable
+      draggable={!isDeleting}
       onDragStart={(e) => onDragStart(e, item.id)}
       onClick={() => onClick(item)}
       className="group relative bg-white border border-slate-200/90 hover:border-blue-400 rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-2.5 select-none"
@@ -35,6 +54,16 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
             RICE {item.rice.score.toFixed(1)}
           </span>
+          <button
+            type="button"
+            aria-label={`Delete ${item.title}`}
+            title="Delete initiative"
+            disabled={isDeleting}
+            onClick={handleDelete}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50"
+          >
+            <Trash2 size={13} />
+          </button>
           <GripVertical size={13} className="text-slate-300 group-hover:text-slate-500 cursor-grab" />
         </div>
       </div>

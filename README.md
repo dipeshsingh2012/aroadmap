@@ -55,7 +55,7 @@ Clicking any initiative opens a slide-over PRD drawer containing:
 A built-in opportunity framing intake modal based on Teresa Torres' **Opportunity Solution Trees** and **Jobs-to-be-Done (JTBD)**.
 
 ### 5. 🤖 Autonomous SDLC Fleet Dispatch Gate
-Human-in-the-loop sign-off: clicking **"Approve & Start Dev"** in the PRD drawer immediately dispatches an autonomous agent swarm to create the feature branch, write implementation files, run pre-commit tests, and open a GitHub Pull Request with zero manual ticket toil.
+Human-in-the-loop sign-off: moving a card to **Ready for dev** or clicking **"Approve & Start Dev"** in the PRD drawer dispatches an autonomous agent swarm to create the feature branch, write implementation files, run pre-commit tests, and open a GitHub Pull Request with zero manual ticket toil.
 
 ### 6. 🌐 Pure Wildcard Subdomain Multi-Tenancy
 Edge middleware seamlessly resolves `[tenant].aroadmap.dev` in `<10ms` (zero query strings), loading isolated tenant branding, theme colors, logos, and connected GitHub repositories.
@@ -112,7 +112,7 @@ flowchart TD
 | :--- | :--- | :--- |
 | **`create_initiative`** | **Pillar 1: Creation** | Creates a living PRD with User Story, Gherkin Criteria, and RICE scoring. |
 | **`update_initiative`** | **Pillar 2: CRUD** | Updates any field on an initiative (RICE, specs, criteria, priority, quarter). |
-| **`transition_initiative_stage`** | **Pillar 2: Workflow** | Moves cards through the SDLC stages; moving an approved LectureScribe initiative to development dispatches it to Agentic Fleet. |
+| **`transition_initiative_stage`** | **Pillar 2: Workflow** | Moves cards through the SDLC stages; moving an approved initiative to development dispatches it to Agentic Fleet. |
 | **`get_initiative`** | **Pillar 2: Inspect** | Retrieves full PRD specification for a single initiative. |
 | **`list_initiatives`** | **Pillar 2: Query** | Filters backlog by stage, theme, priority, or full-text search. |
 | **`delete_initiative`** | **Pillar 2: Teardown** | Permanently deletes an initiative from the backlog. |
@@ -124,7 +124,7 @@ flowchart TD
 
 ### Client MCP Configuration
 
-For the `lecturescribe` tenant, moving an approved initiative to `stage: "development"` starts Agentic Fleet and returns its `request_id`. The privileged MCP transition requires the `Authorization: Bearer …` value configured from `AROADMAP_FLEET_TRIGGER_TOKEN`. On the web board, an operator must sign in first; configure distinct random values of at least 32 bytes for `AROADMAP_LECTURESCRIBE_OPERATOR_PASSWORD` and `AROADMAP_LECTURESCRIBE_SESSION_SECRET` server-side. Never put either credential in browser code or tenant metadata. Other tenants' stage transitions do not dispatch to LectureScribe. The explicit `trigger_lecturescribe_fleet` tool remains available for authorized retries.
+For each tenant, configure `AROADMAP_MCP_URL_<TENANT>`, `AROADMAP_TRIGGER_TOKEN_<TENANT>`, `AROADMAP_OPERATOR_PASSWORD_<TENANT>`, `AROADMAP_OPERATOR_SESSION_SECRET_<TENANT>`, and `AROADMAP_TOKEN_<TENANT>` as server-side environment variables. Moving an initiative to `stage: "ready_for_dev"` or using the PRD drawer's **Approve & Start Dev** button starts Agentic Fleet and returns its `request_id`. Use distinct random values of at least 32 bytes for the operator password and session secret. Never put credentials in browser code or tenant metadata.
 
 #### Google Antigravity SDK (`~/.gemini/config/mcp_config.json`):
 ```json

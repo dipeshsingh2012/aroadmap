@@ -10,6 +10,7 @@
     "test": "tsx scripts/test-ai-suggestions.ts",
     "test:ai": "tsx scripts/test-ai-suggestions.ts",
     "test:mcp": "tsx scripts/test-mcp-suite.ts",
+    "test:fleet-start": "tsx scripts/test-fleet-start.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx lib/db/seed-runner.ts"

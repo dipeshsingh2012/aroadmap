@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { RoadmapRepository } from "./db";
 import { computeRICEScore, RoadmapInitiative, RoadmapStage } from "./types";
+import { tenantEnvironmentKey } from "./tenant-env";
 
 export class MCPServerHandler {
   static getTools() {
@@ -117,7 +118,7 @@ export class MCPServerHandler {
 
       {
         name: "transition_initiative_stage",
-        description: "Transition an initiative through the SDLC workflow stages. Approving a LectureScribe initiative also dispatches it to Agentic Fleet.",
+        description: "Transition an initiative through the SDLC workflow stages. Moving an approved initiative to development also dispatches Agentic Fleet.",
         inputSchema: {
           type: "object",
           properties: {
@@ -138,7 +139,7 @@ export class MCPServerHandler {
               type: "string",
               enum: ["mcp_start_dev", "mcp_initiative", "fleet_trigger"],
               default: "mcp_start_dev",
-              description: "LectureScribe Agentic Fleet event used when moving an approved initiative to development.",
+              description: "Agentic Fleet event used when moving an approved initiative to development.",
             },
             request_id: { type: "string", description: "Optional idempotency key for the dispatch." },
           },
@@ -259,12 +260,12 @@ export class MCPServerHandler {
       },
 
       {
-        name: "trigger_lecturescribe_fleet",
-        description: "Dispatch an approved LectureScribe initiative to Agentic Fleet through LectureScribe's authenticated MCP server.",
+        name: "trigger_fleet_dispatch",
+        description: "Dispatch an approved initiative to Agentic Fleet through the tenant's authenticated MCP server.",
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", description: "Must be the LectureScribe tenant ID." },
+            tenant_id: { type: "string", description: "Tenant workspace ID." },
             initiative_id: { type: "string", description: "Approved aroadmap initiative ID." },
             event_type: {
               type: "string",
@@ -284,7 +285,7 @@ export class MCPServerHandler {
         inputSchema: {
           type: "object",
           properties: {
-            tenant_id: { type: "string", description: "Tenant identifier (e.g. 'rfpengine', 'lecturescribe')." },
+            tenant_id: { type: "string", description: "Tenant identifier." },
             initiative_id: { type: "string", description: "Target initiative ID." },
             request_id: { type: "string", description: "Unique idempotency key for this fleet run." },
             status: {
@@ -378,9 +379,9 @@ export class MCPServerHandler {
         // 2. UPDATE INITIATIVE
         // ───────────────────────────────────────────────────────────
         else if (name === "update_initiative") {
-          if (tenantId === "lecturescribe" && args.updates?.stage === "development") {
+          if (args.updates?.stage === "development") {
             throw new Error(
-              "Use transition_initiative_stage to move a LectureScribe initiative to development and trigger Agentic Fleet."
+              "Use transition_initiative_stage to move an initiative to development and trigger Agentic Fleet."
             );
           }
           const updated = await RoadmapRepository.updateInitiative(
@@ -413,34 +414,33 @@ export class MCPServerHandler {
           if (!existing) {
             rawResult = { error: `Initiative '${args.item_id}' not found` };
           } else if (
-            tenantId === "lecturescribe" &&
             targetStage === "development" &&
-            existing.stage === "development"
+            (existing.stage === "development" || existing.stage === "in_development")
           ) {
             rawResult = {
               status: "already_in_development",
               initiative_id: args.item_id,
               stage: "development",
               quarter: existing.quarter,
-              message: "LectureScribe initiative is already in development; no duplicate fleet run was dispatched.",
+              message: "Initiative is already in development; no duplicate fleet run was dispatched.",
             };
           } else if (
-            tenantId === "lecturescribe" &&
             targetStage === "development" &&
-            existing.stage !== "approved"
+            existing.stage !== "approved" &&
+            existing.stage !== "ready_for_dev"
           ) {
             rawResult = {
-              error: "LectureScribe initiatives must be approved before they can be moved to development.",
+              error: "Initiatives must be approved or ready for dev before they can be moved to development.",
             };
           } else {
             let dispatch: any;
-            if (tenantId === "lecturescribe" && targetStage === "development") {
+            if (targetStage === "development") {
               const dispatchResponse = await this.handleRequest({
                 jsonrpc: "2.0",
                 id,
                 method: "tools/call",
                 params: {
-                  name: "trigger_lecturescribe_fleet",
+                  name: "trigger_fleet_dispatch",
                   arguments: {
                     tenant_id: tenantId,
                     initiative_id: args.item_id,
@@ -451,7 +451,7 @@ export class MCPServerHandler {
               });
               dispatch = dispatchResponse?.result;
               if (!dispatch || dispatch.isError || dispatch.error) {
-                throw new Error(dispatch?.error || "LectureScribe fleet dispatch failed.");
+                throw new Error(dispatch?.error || "Fleet dispatch failed.");
               }
             }
 
@@ -475,7 +475,7 @@ export class MCPServerHandler {
                   }
                 : {}),
               message: dispatch
-                ? `Moved '${updated.title}' to development and dispatched it to LectureScribe Agentic Fleet.`
+                ? `Moved '${updated.title}' to development and dispatched it to Agentic Fleet.`
                 : `Transitioned '${updated.title}' to stage '${targetStage.toUpperCase()}'`,
             };
           }
@@ -630,22 +630,19 @@ export class MCPServerHandler {
             active_tenants: tenants.length,
             latency_ms: 11.8,
           };
-        } else if (name === "trigger_lecturescribe_fleet") {
-          if (tenantId !== "lecturescribe") {
-            throw new Error("Fleet dispatch is only enabled for the LectureScribe tenant.");
-          }
+        } else if (name === "trigger_fleet_dispatch") {
           const initiative = await RoadmapRepository.getInitiative(tenantId, args.initiative_id);
           if (!initiative) {
-            throw new Error("Initiative not found for the LectureScribe tenant.");
+            throw new Error("Initiative not found for this tenant.");
           }
           if (initiative.stage !== "approved" && initiative.stage !== "ready_for_dev") {
             throw new Error("Only approved / ready for dev initiatives may be dispatched to Agentic Fleet.");
           }
 
-          const endpoint = process.env.LECTURESCRIBE_MCP_URL;
-          const token = process.env.LECTURESCRIBE_MCP_TOKEN;
+          const endpoint = process.env[tenantEnvironmentKey("AROADMAP_MCP_URL", tenantId)];
+          const token = process.env[tenantEnvironmentKey("AROADMAP_TRIGGER_TOKEN", tenantId)];
           if (!endpoint || !token) {
-            throw new Error("LectureScribe MCP integration is not configured.");
+            throw new Error(`Fleet MCP integration is not configured for tenant '${tenantId}'.`);
           }
           const requestId = args.request_id || randomUUID();
           const task = [
@@ -659,6 +656,11 @@ export class MCPServerHandler {
           ]
             .filter(Boolean)
             .join("\n\n") || initiative.title;
+          const tenant = await RoadmapRepository.getTenant(tenantId);
+          const targetRepo = tenant?.github_repo;
+          if (!targetRepo) {
+            throw new Error(`GitHub repository is not configured for tenant '${tenantId}'.`);
+          }
           const fleetResponse = await fetch(endpoint, {
             method: "POST",
             headers: {
@@ -679,6 +681,7 @@ export class MCPServerHandler {
                   title: initiative.title,
                   task,
                   acceptance_criteria: initiative.acceptance_criteria,
+                  github_repository: targetRepo,
                   source: "aroadmap",
                 },
               },
@@ -686,20 +689,17 @@ export class MCPServerHandler {
             signal: AbortSignal.timeout(20_000),
           });
           if (!fleetResponse.ok) {
-            throw new Error(`LectureScribe MCP returned HTTP ${fleetResponse.status}.`);
+            throw new Error(`Fleet MCP returned HTTP ${fleetResponse.status}.`);
           }
           const fleetResult = await fleetResponse.json();
           if (fleetResult.error || fleetResult.result?.isError) {
-            throw new Error(fleetResult.error?.message || fleetResult.result?.error || "LectureScribe rejected the fleet request.");
+            throw new Error(fleetResult.error?.message || fleetResult.result?.error || "Fleet MCP rejected the request.");
           }
           const dispatch = fleetResult.result || {};
           const acceptedStatuses = ["dispatching", "queued", "running", "succeeded", "failed", "cancelled"];
           if (!acceptedStatuses.includes(dispatch.status)) {
-            throw new Error("LectureScribe did not confirm that the fleet request was queued.");
+            throw new Error("Fleet MCP did not confirm that the request was queued.");
           }
-
-          const tenant = await RoadmapRepository.getTenant(tenantId);
-          const targetRepo = tenant?.github_repo || args.github_repository || "dipeshsingh2012/lecturescribe";
 
           await RoadmapRepository.reportFleetStatus({
             tenant_id: tenantId,
@@ -714,7 +714,7 @@ export class MCPServerHandler {
             initiative_id: initiative.id,
             fleet_status: dispatch.status,
             github_repository: targetRepo,
-            message: `LectureScribe fleet request is ${dispatch.status}.`,
+            message: `Agentic Fleet request is ${dispatch.status}.`,
           };
         } else if (name === "report_fleet_status") {
           if (!args.tenant_id || !args.initiative_id || !args.request_id || !args.status) {

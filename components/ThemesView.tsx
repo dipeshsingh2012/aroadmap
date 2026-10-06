@@ -8,6 +8,7 @@ interface ThemesViewProps {
   initiatives: RoadmapInitiative[];
   upvotedIds: Set<string>;
   onUpvote: (id: string, e: React.MouseEvent) => void;
+  onDeleteInitiative: (id: string) => Promise<void>;
   onSelectInitiative: (item: RoadmapInitiative) => void;
 }
 
@@ -15,6 +16,7 @@ export const ThemesView: React.FC<ThemesViewProps> = ({
   initiatives,
   upvotedIds,
   onUpvote,
+  onDeleteInitiative,
   onSelectInitiative,
 }) => {
   return (
@@ -42,6 +44,7 @@ export const ThemesView: React.FC<ThemesViewProps> = ({
                   item={item}
                   isUpvoted={upvotedIds.has(item.id)}
                   onUpvote={onUpvote}
+                  onDelete={onDeleteInitiative}
                   onClick={onSelectInitiative}
                   onDragStart={() => {}}
                 />
