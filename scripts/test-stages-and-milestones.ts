@@ -1,6 +1,23 @@
 import { CANONICAL_STAGES, STAGE_CONFIG, normalizeStage, getTenantStages, RoadmapStage } from "../lib/types";
 import { MCPServerHandler } from "../lib/mcp-server";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function declaresProperty(properties: unknown, name: string): boolean {
+  return isRecord(properties) && Object.hasOwn(properties, name);
+}
+
+function enumIncludes(properties: unknown, property: string, value: string): boolean {
+  if (!isRecord(properties)) return false;
+
+  const schemaProperty = properties[property];
+  if (!isRecord(schemaProperty) || !Array.isArray(schemaProperty.enum)) return false;
+
+  return schemaProperty.enum.includes(value);
+}
+
 async function runTestSuite() {
   console.log("===============================================================");
   console.log("🧪 VERIFICATION: AROADMAP STAGES & FLEET MILESTONE DECOUPLING");
@@ -68,19 +85,20 @@ async function runTestSuite() {
   const reportTool = tools.find((t: any) => t.name === "report_fleet_status");
   assert(!!reportTool, "report_fleet_status tool declared");
 
-  const props = reportTool?.inputSchema?.properties || {};
-  assert(!!props.tenant_id, "report_fleet_status declares tenant_id");
-  assert(!!props.initiative_id, "report_fleet_status declares initiative_id");
-  assert(!!props.request_id, "report_fleet_status declares request_id");
-  assert(!!props.milestone, "report_fleet_status declares milestone property");
-  assert(!!props.pr_url, "report_fleet_status declares pr_url property");
-  assert(props.status?.enum?.includes("in_progress"), "report_fleet_status accepts in_progress status");
-  assert(props.status?.enum?.includes("completed"), "report_fleet_status accepts completed status");
-  assert(props.status?.enum?.includes("blocked"), "report_fleet_status accepts blocked status");
+  const props: unknown = reportTool?.inputSchema?.properties;
+  assert(declaresProperty(props, "tenant_id"), "report_fleet_status declares tenant_id");
+  assert(declaresProperty(props, "initiative_id"), "report_fleet_status declares initiative_id");
+  assert(declaresProperty(props, "request_id"), "report_fleet_status declares request_id");
+  assert(declaresProperty(props, "milestone"), "report_fleet_status declares milestone property");
+  assert(declaresProperty(props, "pr_url"), "report_fleet_status declares pr_url property");
+  assert(enumIncludes(props, "status", "in_progress"), "report_fleet_status accepts in_progress status");
+  assert(enumIncludes(props, "status", "completed"), "report_fleet_status accepts completed status");
+  assert(enumIncludes(props, "status", "blocked"), "report_fleet_status accepts blocked status");
 
   const createTool = tools.find((t: any) => t.name === "create_initiative");
-  assert(createTool?.inputSchema?.properties?.stage?.enum?.includes("ready_for_dev"), "create_initiative accepts ready_for_dev");
-  assert(createTool?.inputSchema?.properties?.stage?.enum?.includes("security_review"), "create_initiative accepts security_review");
+  const createProps: unknown = createTool?.inputSchema?.properties;
+  assert(enumIncludes(createProps, "stage", "ready_for_dev"), "create_initiative accepts ready_for_dev");
+  assert(enumIncludes(createProps, "stage", "security_review"), "create_initiative accepts security_review");
 
   console.log(`\n===============================================================`);
   console.log(`🏁 FINAL RESULT: ${passed} PASSED, ${failed} FAILED`);
@@ -93,4 +111,3 @@ runTestSuite().catch((err) => {
   console.error("Test error:", err);
   process.exit(1);
 });
-
