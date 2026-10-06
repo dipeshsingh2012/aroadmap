@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { RoadmapRepository } from "./db";
 import { computeRICEScore, RoadmapInitiative, RoadmapStage } from "./types";
 
@@ -224,6 +225,50 @@ export class MCPServerHandler {
           properties: {
             service_name: { type: "string", default: "all" },
           },
+        },
+      },
+
+      {
+        name: "trigger_lecturescribe_fleet",
+        description: "Dispatch an approved LectureScribe initiative to Agentic Fleet through LectureScribe's authenticated MCP server.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            tenant_id: { type: "string", description: "Must be the LectureScribe tenant ID." },
+            initiative_id: { type: "string", description: "Approved aroadmap initiative ID." },
+            event_type: {
+              type: "string",
+              enum: ["mcp_start_dev", "mcp_initiative", "fleet_trigger"],
+              default: "mcp_start_dev",
+            },
+          },
+          required: ["tenant_id", "initiative_id"],
+          additionalProperties: false,
+        },
+      },
+
+      {
+        name: "report_fleet_status",
+        description: "Record an authenticated Agentic Fleet status update against the matching roadmap initiative.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            tenant_id: { type: "string" },
+            initiative_id: { type: "string" },
+            request_id: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["accepted", "queued", "running", "succeeded", "failed", "cancelled"],
+            },
+            github_repository: { type: "string" },
+            github_run_id: { type: "string" },
+            github_run_attempt: { type: "string" },
+            run_url: { type: "string" },
+            conclusion: { type: "string" },
+            error_summary: { type: "string" },
+          },
+          required: ["tenant_id", "initiative_id", "request_id", "status"],
+          additionalProperties: false,
         },
       },
     ];
@@ -488,6 +533,106 @@ export class MCPServerHandler {
             active_tenants: tenants.length,
             latency_ms: 11.8,
           };
+        } else if (name === "trigger_lecturescribe_fleet") {
+          if (tenantId !== "lecturescribe") {
+            throw new Error("Fleet dispatch is only enabled for the LectureScribe tenant.");
+          }
+          const initiative = await RoadmapRepository.getInitiative(tenantId, args.initiative_id);
+          if (!initiative) {
+            throw new Error("Initiative not found for the LectureScribe tenant.");
+          }
+          if (initiative.stage !== "approved") {
+            throw new Error("Only approved initiatives may be dispatched to Agentic Fleet.");
+          }
+
+          const endpoint = process.env.LECTURESCRIBE_MCP_URL;
+          const token = process.env.LECTURESCRIBE_MCP_TOKEN;
+          if (!endpoint || !token) {
+            throw new Error("LectureScribe MCP integration is not configured.");
+          }
+          const requestId = randomUUID();
+          const task = [
+            initiative.summary && `Summary: ${initiative.summary}`,
+            initiative.problem_statement && `Problem: ${initiative.problem_statement}`,
+            initiative.user_story && `User story: ${initiative.user_story}`,
+            initiative.technical_architecture && `Technical architecture: ${initiative.technical_architecture}`,
+            initiative.acceptance_criteria.length > 0
+              ? `Acceptance criteria:\n${initiative.acceptance_criteria.map((criterion) => `- ${criterion}`).join("\n")}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n\n") || initiative.title;
+          const fleetResponse = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: requestId,
+              method: "tools/call",
+              params: {
+                name: "trigger_agentic_fleet",
+                arguments: {
+                  request_id: requestId,
+                  tenant_id: tenantId,
+                  initiative_id: initiative.id,
+                  event_type: args.event_type || "mcp_start_dev",
+                  title: initiative.title,
+                  task,
+                  acceptance_criteria: initiative.acceptance_criteria,
+                  source: "aroadmap",
+                },
+              },
+            }),
+            signal: AbortSignal.timeout(20_000),
+          });
+          if (!fleetResponse.ok) {
+            throw new Error(`LectureScribe MCP returned HTTP ${fleetResponse.status}.`);
+          }
+          const fleetResult = await fleetResponse.json();
+          if (fleetResult.error || fleetResult.result?.isError) {
+            throw new Error(fleetResult.error?.message || fleetResult.result?.error || "LectureScribe rejected the fleet request.");
+          }
+          const dispatch = fleetResult.result || {};
+          const acceptedStatuses = ["dispatching", "queued", "running", "succeeded", "failed", "cancelled"];
+          if (!acceptedStatuses.includes(dispatch.status)) {
+            throw new Error("LectureScribe did not confirm that the fleet request was queued.");
+          }
+
+          await RoadmapRepository.reportFleetStatus({
+            tenant_id: tenantId,
+            initiative_id: initiative.id,
+            request_id: requestId,
+            status: dispatch.status === "dispatching" ? "accepted" : dispatch.status,
+            github_repository: "dipeshsingh2012/lecturescribe",
+          });
+          rawResult = {
+            status: dispatch.status,
+            request_id: requestId,
+            initiative_id: initiative.id,
+            fleet_status: dispatch.status,
+            github_repository: "dipeshsingh2012/lecturescribe",
+            message: `LectureScribe fleet request is ${dispatch.status}.`,
+          };
+        } else if (name === "report_fleet_status") {
+          if (!args.tenant_id || !args.initiative_id || !args.request_id || !args.status) {
+            throw new Error("tenant_id, initiative_id, request_id, and status are required.");
+          }
+          const run = await RoadmapRepository.reportFleetStatus({
+            tenant_id: args.tenant_id,
+            initiative_id: args.initiative_id,
+            request_id: args.request_id,
+            status: args.status,
+            github_repository: args.github_repository,
+            github_run_id: args.github_run_id,
+            github_run_attempt: args.github_run_attempt,
+            run_url: args.run_url,
+            conclusion: args.conclusion,
+            error_summary: args.error_summary,
+          });
+          rawResult = { status: "recorded", fleet_run: run };
         } else {
           return {
             jsonrpc: "2.0",

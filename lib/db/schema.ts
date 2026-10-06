@@ -1,4 +1,4 @@
-import { pgSchema, varchar, text, integer, numeric, jsonb, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { pgSchema, varchar, text, integer, numeric, jsonb, timestamp, primaryKey, index } from "drizzle-orm/pg-core";
 
 // Dedicated 'aroadmap' PostgreSQL Namespace (Schema) in Neon
 export const aroadmapSchema = pgSchema("aroadmap");
@@ -47,5 +47,30 @@ export const initiativesTable = aroadmapSchema.table(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.tenant_id, table.id] }),
+  })
+);
+
+export const fleetRunsTable = aroadmapSchema.table(
+  "fleet_runs",
+  {
+    request_id: varchar("request_id", { length: 128 }).primaryKey(),
+    tenant_id: varchar("tenant_id", { length: 128 }).notNull(),
+    initiative_id: varchar("initiative_id", { length: 128 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull(),
+    github_repository: varchar("github_repository", { length: 255 }),
+    github_run_id: varchar("github_run_id", { length: 32 }),
+    github_run_attempt: varchar("github_run_attempt", { length: 16 }),
+    run_url: text("run_url"),
+    conclusion: varchar("conclusion", { length: 100 }),
+    error_summary: text("error_summary"),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    initiativeUpdated: index("idx_aroadmap_fleet_runs_initiative").on(
+      table.tenant_id,
+      table.initiative_id,
+      table.updated_at
+    ),
   })
 );
